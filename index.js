@@ -4,7 +4,11 @@ dotenv.config();
 
 import { Client, GatewayIntentBits, Partials, Collection } from "discord.js";
 import mongoose from "mongoose";
-import express from "express"; // 👈 Added Express for Render keep-alive
+import express from "express";
+import fs from "fs"; // 👈 Added for config.json loading
+
+// Load config.json manually (works in Node 22+)
+const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
 
 // Define intents and partials
 const {
@@ -42,7 +46,6 @@ const client = new Client({
 });
 
 // Load client properties
-import config from "./config.json" assert { type: "json" };
 client.config = config;
 client.commands = new Collection();
 client.subCommands = new Collection();
