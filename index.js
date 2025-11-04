@@ -2,14 +2,9 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-// Keep the bot alive (Replit ping)
-import "./keepalive.js";
-
 import { Client, GatewayIntentBits, Partials, Collection } from "discord.js";
-
-import fs from "fs";
-import path from "path";
 import mongoose from "mongoose";
+import express from "express"; // 👈 Added Express for Render keep-alive
 
 // Define intents and partials
 const {
@@ -94,4 +89,10 @@ if (!token) {
 
 client.login(token).catch((err) => console.error("❌ Login failed:", err));
 
+// ✅ Render keep-alive web server
+const app = express();
+app.get("/", (req, res) => res.send("✅ Discord bot is running!"));
+app.listen(3000, () => console.log("🌐 Web server running on port 3000"));
+
+// Export client (optional)
 export default client;
