@@ -6,6 +6,7 @@ import { Client, GatewayIntentBits, Partials, Collection } from "discord.js";
 import mongoose from "mongoose";
 import express from "express";
 import fs from "fs"; // 👈 Added for config.json loading
+import fetch from "node-fetch"; // 👈 For optional self-ping
 
 // Load config.json manually (works in Node 22+)
 const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
@@ -95,7 +96,17 @@ client.login(token).catch((err) => console.error("❌ Login failed:", err));
 // ✅ Render keep-alive web server
 const app = express();
 app.get("/", (req, res) => res.send("✅ Discord bot is running!"));
-app.listen(3000, () => console.log("🌐 Web server running on port 3000"));
+
+// ⚙️ Use dynamic port for Render compatibility
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🌐 Web server running on port ${PORT}`));
+
+// 🏓 Optional: Self-ping every 5 minutes to prevent sleep
+setInterval(() => {
+  fetch("https://g-modtest.onrender.com/").catch(() =>
+    console.log("⚠️ Self-ping failed (maybe asleep)")
+  );
+}, 5 * 60 * 1000); // every 5 minutes
 
 // Export client (optional)
 export default client;
