@@ -3,6 +3,7 @@ const ModLogs = require("../../Schemas/modLogs");
 const config = require("../../config.json");
 
 const messageMap = new Map();
+const activePunishments = new Set(); // <-- NEW
 
 module.exports = {
   name: "messageCreate",
@@ -14,24 +15,27 @@ module.exports = {
       const guildId = guild.id;
       const userId = message.author.id;
 
-      // Skip developers/exception IDs
       if (config.DeveloperID && config.DeveloperID.includes(userId)) return;
 
       const now = Date.now();
       const userMessages = messageMap.get(userId) || [];
 
-      // Only keep messages in last 3 seconds
+      // Only keep messages from the last 3 seconds
       const recent = userMessages.filter(m => now - m.timestamp < 3000);
       recent.push({ message, timestamp: now });
       messageMap.set(userId, recent);
 
-      if (recent.length >= 5) { // 5+ messages in 3 seconds triggers timeout
-        messageMap.delete(userId); // reset spam counter
+      if (recent.length >= 5) {
+        messageMap.delete(userId);
+
+        // ✅ prevent double punishment
+        if (activePunishments.has(userId)) return;
+        activePunishments.add(userId);
+        setTimeout(() => activePunishments.delete(userId), 5000);
 
         const member = await guild.members.fetch(userId).catch(() => null);
         if (!member) return;
 
-        // --- ✅ Permission + hierarchy checks ---
         const me = guild.members.me;
         if (!me.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
           console.warn(`[AntiRaid] Missing "Moderate Members" permission in ${guild.name}`);
@@ -47,13 +51,12 @@ module.exports = {
           console.warn(`[AntiRaid] Cannot timeout ${member.user.tag} due to role hierarchy.`);
           return;
         }
-        // ---------------------------------------
 
         // ✅ Apply 1-hour timeout
         const oneHour = 60 * 60 * 1000;
         await member.timeout(oneHour, "Anti-Raid: Spam detected");
 
-        // DM the user
+        // DM the user (only once)
         const dmEmbed = new EmbedBuilder()
           .setTitle("🚨 You have been timed out")
           .setColor("Red")
