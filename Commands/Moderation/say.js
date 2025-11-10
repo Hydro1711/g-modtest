@@ -1,4 +1,4 @@
-import {
+const {
   SlashCommandBuilder,
   PermissionFlagsBits,
   ModalBuilder,
@@ -6,10 +6,10 @@ import {
   TextInputStyle,
   ActionRowBuilder,
   EmbedBuilder
-} from "discord.js";
-import config from "../../config.json" assert { type: "json" };
+} = require("discord.js");
+const { DeveloperID } = require("../../config.json");
 
-export default {
+module.exports = {
   data: new SlashCommandBuilder()
     .setName("say")
     .setDescription("Send a message or embed via the bot")
@@ -23,8 +23,6 @@ export default {
     ),
 
   async execute(interaction) {
-    const { DeveloperID } = config;
-
     // Permission check
     if (
       interaction.user.id !== DeveloperID &&
@@ -158,5 +156,3 @@ export default {
     }
   }
 };
-
-
