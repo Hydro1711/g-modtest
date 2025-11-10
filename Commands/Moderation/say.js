@@ -7,7 +7,7 @@ import {
   ActionRowBuilder,
   EmbedBuilder
 } from "discord.js";
-import config from "../config.json" assert { type: "json" };
+import config from "../../config.json" assert { type: "json" };
 
 export default {
   data: new SlashCommandBuilder()
@@ -158,4 +158,5 @@ export default {
     }
   }
 };
+
 
