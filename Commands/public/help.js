@@ -9,7 +9,7 @@ const {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("help")
-    .setDescription("Shows the bot's command menu."),
+    .setDescription("Displays the bot's command directory."),
 
   async execute(interaction) {
     const client = interaction.client;
@@ -58,23 +58,34 @@ module.exports = {
 
     const row = new ActionRowBuilder().addComponents(menu);
 
+    // --- Refined "homepage" embed ---
     const introEmbed = new EmbedBuilder()
-      .setTitle(`${client.user.username}'s Command Menu`)
+      .setAuthor({
+        name: `${client.user.username} Command Directory`,
+        iconURL: client.user.displayAvatarURL({ size: 256 })
+      })
       .setDescription(
         [
-          "Use the dropdown menu below to browse commands.",
-          "An asterisk (*) means the command has subcommands.",
+          "Welcome to the command menu.",
           "",
-          `Need extra help?\nDeveloper: ${client.application?.owner?.tag || "Unknown"}`
+          "• Use the dropdown below to browse command categories.",
+          "• Commands marked with `*` include subcommands or advanced options.",
+          "",
+          "This bot provides moderation, fun, and utility features designed to make server management effortless and intuitive.",
+          "",
+          `Developer: ${client.application?.owner?.tag || "Unknown"}`
         ].join("\n")
       )
-      .setColor("Blue");
+      .setColor("#2b6cb0")
+      .setFooter({
+        text: "Use /help again anytime to reopen this menu."
+      });
 
     // Send main embed
     const msg = await interaction.reply({
       embeds: [introEmbed],
       components: [row],
-      ephemeral: false // visible to everyone
+      ephemeral: false
     });
 
     // Handle dropdown selection
@@ -86,7 +97,7 @@ module.exports = {
     collector.on("collect", async i => {
       if (i.user.id !== interaction.user.id) {
         return i.reply({
-          content: "You can't use this help menu.",
+          content: "You cannot interact with this help menu.",
           ephemeral: true
         });
       }
@@ -105,10 +116,15 @@ module.exports = {
         .join("\n");
 
       const embed = new EmbedBuilder()
-        .setTitle(`${cat} Commands`)
+        .setAuthor({
+          name: `${cat} Commands`,
+          iconURL: client.user.displayAvatarURL({ size: 256 })
+        })
         .setDescription(desc || "No commands found in this category.")
-        .setColor("Blue")
-        .setFooter({ text: "Select another module to view its commands." });
+        .setColor("#2b6cb0")
+        .setFooter({
+          text: "Select another module to view more commands."
+        });
 
       await i.update({ embeds: [embed], components: [row] });
     });
