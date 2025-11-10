@@ -2,10 +2,10 @@
   "name": "bot",
   "version": "1.0.0",
   "description": "",
-  "type": "module",                ← ✅ Add this line
+  "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",      ← ✅ Add a start script (optional but handy)
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -32,7 +32,7 @@
     "qrcode": "^1.5.4",
     "randomstring": "^1.3.1"
   },
-  "engines": {                     ← ✅ Optional: ensure correct Node version on Render
+  "engines": {
     "node": ">=18.0.0"
   }
 }
