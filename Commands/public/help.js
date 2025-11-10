@@ -14,7 +14,7 @@ module.exports = {
   async execute(interaction) {
     const client = interaction.client;
 
-    // --- Command categories based on your structure ---
+    // --- Command categories ---
     const categories = {
       Developer: [
         "createlink",
@@ -23,7 +23,16 @@ module.exports = {
         "serverList"
       ],
       Fun: [
-        "minigames"
+        "8ball",
+        "coinflip",
+        "roll",
+        "meme",
+        "quote",
+        "cat",
+        "ship",
+        "hug",
+        "slap",
+        "kiss"
       ],
       Moderation: [
         "adminRole",
@@ -40,11 +49,17 @@ module.exports = {
       ],
       Public: [
         "afk",
-        "balance"
+        "balance",
+        "ping",
+        "userinfo",
+        "serverinfo",
+        "avatar",
+        "botinfo",
+        "invite"
       ]
     };
 
-    // Create dropdown options
+    // Dropdown menu options
     const options = Object.keys(categories).map(cat => ({
       label: cat,
       description: `View ${cat} commands.`,
@@ -58,7 +73,7 @@ module.exports = {
 
     const row = new ActionRowBuilder().addComponents(menu);
 
-    // --- Refined "homepage" embed ---
+    // --- Refined homepage embed ---
     const introEmbed = new EmbedBuilder()
       .setAuthor({
         name: `${client.user.username} Command Directory`,
@@ -73,7 +88,7 @@ module.exports = {
           "",
           "This bot provides moderation, fun, and utility features designed to make server management effortless and intuitive.",
           "",
-          `Developer: ${client.application?.owner?.tag || "Unknown"}`
+          `Developer: ${client.application?.owner?.tag || "Hydro.17"}`
         ].join("\n")
       )
       .setColor("#2b6cb0")
@@ -88,7 +103,7 @@ module.exports = {
       ephemeral: false
     });
 
-    // Handle dropdown selection
+    // Handle dropdown selections
     const collector = msg.createMessageComponentCollector({
       componentType: ComponentType.StringSelect,
       time: 120000
