@@ -6,7 +6,6 @@ const {
 } = require("discord.js");
 const MuteRoleDB = require("../../Schemas/muteRole");
 const MutedList = require("../../Schemas/mutedList");
-const MutedUsersDB = require("../../Schemas/userRoles");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -24,7 +23,9 @@ module.exports = {
     const unmuteIcon = "<:unmuteIcon:1395102309062541424>";
 
     if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers))
-      return interaction.editReply({ content: `${closeIcon} You need ModerateMembers permission.` });
+      return interaction.editReply({
+        content: `${closeIcon} You need the **Moderate Members** permission to use this.`,
+      });
 
     const targetUser = interaction.options.getUser("user");
     if (!targetUser)
@@ -34,7 +35,7 @@ module.exports = {
     try {
       member = await interaction.guild.members.fetch(targetUser.id, { force: true });
     } catch {
-      return interaction.editReply({ content: `${closeIcon} Could not fetch member.` });
+      return interaction.editReply({ content: `${closeIcon} Could not fetch that member.` });
     }
 
     if (!member)
@@ -42,33 +43,29 @@ module.exports = {
 
     const muteData = await MuteRoleDB.findOne({ Guild: interaction.guild.id });
     if (!muteData?.RoleID)
-      return interaction.editReply({ content: `${closeIcon} Muted role not set up.` });
+      return interaction.editReply({
+        content: `${closeIcon} The muted role has not been set up yet.`,
+      });
 
     const muteRole = interaction.guild.roles.cache.get(muteData.RoleID);
     if (!muteRole)
-      return interaction.editReply({ content: `${closeIcon} Muted role not found.` });
+      return interaction.editReply({
+        content: `${closeIcon} The muted role no longer exists.`,
+      });
 
     if (!member.roles.cache.has(muteRole.id))
-      return interaction.editReply({ content: `${closeIcon} Member is not muted.` });
+      return interaction.editReply({
+        content: `${closeIcon} This member is not muted.`,
+      });
 
     try {
       await member.roles.remove(muteRole);
       await MutedList.deleteOne({ guildId: interaction.guild.id, userId: member.id });
-      await MutedUsersDB.deleteOne({ guildId: interaction.guild.id, userId: member.id });
-
-      await ModInteraction.create({
-        guildId: interaction.guild.id,
-        moderatorId: interaction.user.id,
-        moderatorTag: interaction.user.tag,
-        action: "unmute",
-        targetId: member.id,
-        targetTag: member.user.tag,
-        details: "Removed mute role and DB entries",
-        date: new Date(),
-      });
     } catch (err) {
       console.error("Failed to unmute member:", err);
-      return interaction.editReply({ content: `${closeIcon} Failed to unmute: ${err.message}` });
+      return interaction.editReply({
+        content: `${closeIcon} Failed to unmute: ${err.message}`,
+      });
     }
 
     const dmEmbed = new EmbedBuilder()
@@ -79,7 +76,9 @@ module.exports = {
 
     try {
       await member.send({ embeds: [dmEmbed] });
-    } catch {}
+    } catch {
+      console.warn(`⚠️ Could not DM ${member.user.tag} about their unmute.`);
+    }
 
     const successEmbed = new EmbedBuilder()
       .setTitle(`Member Unmuted ${unmuteIcon}`)
@@ -90,4 +89,3 @@ module.exports = {
     await interaction.editReply({ embeds: [successEmbed] });
   },
 };
-
