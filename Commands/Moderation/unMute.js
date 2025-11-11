@@ -7,7 +7,6 @@ const {
 const MuteRoleDB = require("../../Schemas/muteRole");
 const MutedList = require("../../Schemas/mutedList");
 const MutedUsersDB = require("../../Schemas/userRoles");
-const ModInteraction = require("../../Schemas/modInteractions");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -91,3 +90,4 @@ module.exports = {
     await interaction.editReply({ embeds: [successEmbed] });
   },
 };
+
