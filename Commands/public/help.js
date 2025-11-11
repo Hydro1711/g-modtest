@@ -9,7 +9,7 @@ const {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("help")
-    .setDescription("Displays the bot's command directory."),
+    .setDescription("Displays all bot commands by category."),
 
   async execute(interaction) {
     const client = interaction.client;
@@ -22,18 +22,7 @@ module.exports = {
         "restart",
         "serverList"
       ],
-      Fun: [
-        "8ball",
-        "coinflip",
-        "roll",
-        "meme",
-        "quote",
-        "cat",
-        "ship",
-        "hug",
-        "slap",
-        "kiss"
-      ],
+
       Moderation: [
         "adminRole",
         "ban",
@@ -45,17 +34,36 @@ module.exports = {
         "timeout",
         "togglelevels",
         "voicemaster",
-        "warn"
+        "warn",
+        "mute",
+        "unmute",
+        "setupMuteRole",
+        "mutedlist",
+        "snipe",
+        "editsnipe"
       ],
+
+      Fun: [
+        "8ball",
+        "roll",
+        "meme",
+        "quote",
+        "cat",
+        "ship",
+        "hug",
+        "slap",
+        "kiss"
+      ],
+
       Public: [
-        "afk",
-        "balance",
         "ping",
         "userinfo",
         "serverinfo",
         "avatar",
         "botinfo",
-        "invite"
+        "invite",
+        "afk",
+        "balance"
       ]
     };
 
@@ -73,7 +81,7 @@ module.exports = {
 
     const row = new ActionRowBuilder().addComponents(menu);
 
-    // --- Refined homepage embed ---
+    // --- Homepage Embed ---
     const introEmbed = new EmbedBuilder()
       .setAuthor({
         name: `${client.user.username} Command Directory`,
@@ -103,7 +111,7 @@ module.exports = {
       ephemeral: false
     });
 
-    // Handle dropdown selections
+    // --- Dropdown collector ---
     const collector = msg.createMessageComponentCollector({
       componentType: ComponentType.StringSelect,
       time: 120000
@@ -126,7 +134,7 @@ module.exports = {
           const data = cmd?.data;
           const hasSub = data?.options?.some(o => o.type === 1);
           const subMark = hasSub ? "*" : "";
-          return `• **/${data?.name || name}${subMark}** — ${data?.description || "No description."}`;
+          return `• **/${data?.name || name}${subMark}** — ${data?.description || "No description provided."}`;
         })
         .join("\n");
 
@@ -138,12 +146,13 @@ module.exports = {
         .setDescription(desc || "No commands found in this category.")
         .setColor("#2b6cb0")
         .setFooter({
-          text: "Select another module to view more commands."
+          text: "Select another category to view more commands."
         });
 
       await i.update({ embeds: [embed], components: [row] });
     });
 
+    // --- Disable after timeout ---
     collector.on("end", async () => {
       const disabled = new ActionRowBuilder().addComponents(
         StringSelectMenuBuilder.from(menu).setDisabled(true)
