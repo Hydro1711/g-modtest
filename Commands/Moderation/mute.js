@@ -11,7 +11,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("mute")
     .setDescription("Mute a member permanently")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers) // ✅ changed permission
+    .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
     .addUserOption(option =>
       option
         .setName("user")
@@ -32,7 +32,9 @@ module.exports = {
     const muteIcon = "<:muteIcon:1395102317971509408>";
 
     if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers))
-      return interaction.editReply({ content: `${closeIcon} You need the **Moderate Members** permission to use this.` });
+      return interaction.editReply({
+        content: `${closeIcon} You need the **Moderate Members** permission to use this.`,
+      });
 
     const targetUser = interaction.options.getUser("user");
     const reason = interaction.options.getString("reason");
@@ -57,27 +59,39 @@ module.exports = {
       member.roles.highest.position >= interaction.member.roles.highest.position &&
       interaction.user.id !== interaction.guild.ownerId
     )
-      return interaction.editReply({ content: `${closeIcon} You cannot mute someone with an equal or higher role.` });
+      return interaction.editReply({
+        content: `${closeIcon} You cannot mute someone with an equal or higher role.`,
+      });
 
     if (!member.manageable)
       return interaction.editReply({ content: `${closeIcon} I cannot manage this member.` });
 
     if (!interaction.guild.members.me.permissions.has(PermissionFlagsBits.ManageRoles))
-      return interaction.editReply({ content: `${closeIcon} I need the **Manage Roles** permission to do that.` });
+      return interaction.editReply({
+        content: `${closeIcon} I need the **Manage Roles** permission to do that.`,
+      });
 
     const muteData = await MuteRoleDB.findOne({ Guild: interaction.guild.id });
     if (!muteData?.RoleID)
-      return interaction.editReply({ content: `${closeIcon} The muted role has not been set up yet.` });
+      return interaction.editReply({
+        content: `${closeIcon} The muted role has not been set up yet.`,
+      });
 
     const muteRole = interaction.guild.roles.cache.get(muteData.RoleID);
     if (!muteRole)
-      return interaction.editReply({ content: `${closeIcon} The muted role no longer exists.` });
+      return interaction.editReply({
+        content: `${closeIcon} The muted role no longer exists.`,
+      });
 
     if (muteRole.position >= interaction.guild.members.me.roles.highest.position)
-      return interaction.editReply({ content: `${closeIcon} My role must be higher than the muted role.` });
+      return interaction.editReply({
+        content: `${closeIcon} My role must be higher than the muted role.`,
+      });
 
     if (member.roles.cache.has(muteRole.id))
-      return interaction.editReply({ content: `${closeIcon} This member is already muted.` });
+      return interaction.editReply({
+        content: `${closeIcon} This member is already muted.`,
+      });
 
     try {
       await member.roles.add(muteRole);
@@ -93,21 +107,11 @@ module.exports = {
         },
         { upsert: true }
       );
-
-      await ModInteraction.create({
-        guildId: interaction.guild.id,
-        moderatorId: interaction.user.id,
-        moderatorTag: interaction.user.tag,
-        action: "mute",
-        targetId: member.id,
-        targetTag: member.user.tag,
-        reason,
-        details: "Permanent mute",
-        date: new Date(),
-      });
     } catch (err) {
       console.error("Failed to mute member:", err);
-      return interaction.editReply({ content: `${closeIcon} Failed to mute: ${err.message}` });
+      return interaction.editReply({
+        content: `${closeIcon} Failed to mute: ${err.message}`,
+      });
     }
 
     const dmEmbed = new EmbedBuilder()
@@ -131,4 +135,3 @@ module.exports = {
     await interaction.editReply({ embeds: [successEmbed] });
   },
 };
-
