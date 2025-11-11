@@ -1,10 +1,12 @@
 const { EmbedBuilder, PermissionsBitField } = require("discord.js");
 const MessageLogs = require("../../Schemas/messageLogs");
+const { messageUpdate: recordEditSnipe } = require("../../Commands/Moderation/editsnipe");
 
 module.exports = {
   name: "messageUpdate",
   async execute(oldMessage, newMessage) {
     try {
+      // ✅ Fetch partials if needed
       if (oldMessage.partial) oldMessage = await oldMessage.fetch();
       if (newMessage.partial) newMessage = await newMessage.fetch();
 
@@ -12,6 +14,14 @@ module.exports = {
       if (oldMessage.author?.bot) return;
       if (oldMessage.content === newMessage.content) return;
 
+      // ✅ Feed edit-snipe cache
+      try {
+        recordEditSnipe(oldMessage, newMessage);
+      } catch (err) {
+        console.warn("[messageUpdate] Failed to record editsnipe:", err);
+      }
+
+      // ✅ Continue your message log logic
       const logData = await MessageLogs.findOne({ guildId: oldMessage.guild.id });
       if (!logData?.channelId) return;
 
