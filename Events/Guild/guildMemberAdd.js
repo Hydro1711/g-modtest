@@ -3,7 +3,6 @@ const moment = require("moment");
 const MutedList = require("../../Schemas/mutedList");
 const MutedRoleDB = require("../../Schemas/muteRole"); // per-server mute role
 const Blacklist = require("../../Schemas/blacklist");
-const updateMutedListMessage = require("../../Functions/updateMutedListMessage");
 
 module.exports = {
   name: "guildMemberAdd",
@@ -65,10 +64,9 @@ module.exports = {
               console.log(`[MUTE_REJOIN] ${member.user.tag} already has the mute role`);
             } else {
               console.log(`[MUTE_REJOIN] Adding mute role ${muteRole.name} to ${member.user.tag}`);
-              await member.roles.add(muteRole).catch(err => console.error(`[MUTE_REJOIN] Failed to add mute role:`, err));
-
-              console.log(`[MUTE_REJOIN] Updating muted list message for ${member.guild.name}`);
-              await updateMutedListMessage(member.guild).catch(err => console.error(`[MUTE_REJOIN] Failed to update muted list message:`, err));
+              await member.roles.add(muteRole).catch(err =>
+                console.error(`[MUTE_REJOIN] Failed to add mute role:`, err)
+              );
             }
           }
         }
