@@ -1,17 +1,14 @@
-// Load environment variables from .env
 import dotenv from "dotenv";
 dotenv.config();
 
 import { Client, GatewayIntentBits, Partials, Collection } from "discord.js";
 import mongoose from "mongoose";
 import express from "express";
-import fs from "fs"; // 👈 Added for config.json loading
-import fetch from "node-fetch"; // 👈 For optional self-ping
+import fs from "fs"; 
+import fetch from "node-fetch"; 
 
-// Load config.json manually (works in Node 22+)
 const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
 
-// Define intents and partials
 const {
   Guilds,
   GuildMembers,
@@ -25,7 +22,6 @@ const {
 const { User, Message, GuildMember, ThreadMember, Channel, MessageReaction } =
   Partials;
 
-// Create the client
 const client = new Client({
   intents: [
     Guilds,
@@ -35,6 +31,7 @@ const client = new Client({
     MessageContent,
     GuildVoiceStates,
     GuildMessageReactions,
+    GatewayIntentBits.GuildPresences,
   ],
   partials: [
     User,
