@@ -1,10 +1,7 @@
-import {
-  SlashCommandBuilder,
-  EmbedBuilder
-} from "discord.js";
-import fetch from "node-fetch";
+const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const fetch = require("node-fetch");
 
-// --- Helper: API timeout wrapper ---
+// --- Helper: Timeout Fetch ---
 const timeoutFetch = (url, ms = 5000) =>
   Promise.race([
     fetch(url),
@@ -13,11 +10,11 @@ const timeoutFetch = (url, ms = 5000) =>
     ),
   ]);
 
-// --- Helper: Try multiple APIs with fallback ---
+// --- Helper: Fallback API Fetch ---
 async function fetchCryptoData(coin) {
   const symbol = coin.toLowerCase();
 
-  // 1️⃣ CoinGecko API
+  // 1️⃣ CoinGecko
   try {
     const res = await timeoutFetch(
       `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${symbol}`
@@ -37,20 +34,20 @@ async function fetchCryptoData(coin) {
     }
   } catch {}
 
-  // 2️⃣ CoinPaprika API
+  // 2️⃣ CoinPaprika
   try {
     const listRes = await timeoutFetch("https://api.coinpaprika.com/v1/coins");
     const list = await listRes.json();
-    const coinMatch = list.find(
+    const match = list.find(
       (c) =>
         c.symbol.toLowerCase() === symbol ||
         c.name.toLowerCase() === symbol ||
         c.id.toLowerCase().includes(symbol)
     );
 
-    if (coinMatch) {
+    if (match) {
       const infoRes = await timeoutFetch(
-        `https://api.coinpaprika.com/v1/tickers/${coinMatch.id}`
+        `https://api.coinpaprika.com/v1/tickers/${match.id}`
       );
       const info = await infoRes.json();
       return {
@@ -65,7 +62,7 @@ async function fetchCryptoData(coin) {
     }
   } catch {}
 
-  // 3️⃣ CryptoCompare API (last fallback)
+  // 3️⃣ CryptoCompare
   try {
     const res = await timeoutFetch(
       `https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${symbol.toUpperCase()}&tsyms=USD`
@@ -88,7 +85,8 @@ async function fetchCryptoData(coin) {
   return null;
 }
 
-export default {
+// --- Main Command ---
+module.exports = {
   data: new SlashCommandBuilder()
     .setName("crypto")
     .setDescription("💰 Get live cryptocurrency information.")
