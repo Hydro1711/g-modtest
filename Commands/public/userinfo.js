@@ -17,12 +17,21 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: false }).catch(() => {});
+    // ✅ Safe defer (handles already replied or expired interactions)
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: false });
+      }
+    } catch (err) {
+      console.warn("[userinfo] Failed to defer interaction:", err.message);
+    }
 
     const target = interaction.options.getUser("target") || interaction.user;
+
     const fetchedUser = await interaction.client.users
       .fetch(target.id, { force: true })
       .catch(() => target);
+
     let member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
     // Presence Handling
@@ -164,6 +173,15 @@ module.exports = {
 
     if (bannerURL) embed.setImage(bannerURL);
 
-    await interaction.editReply({ embeds: [embed] }).catch(console.error);
+    // ✅ Safely reply
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ embeds: [embed] });
+      } else {
+        await interaction.reply({ embeds: [embed] });
+      }
+    } catch (err) {
+      console.error("[userinfo] Failed to send reply:", err);
+    }
   },
 };
