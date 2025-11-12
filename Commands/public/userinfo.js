@@ -1,14 +1,14 @@
 const {
   SlashCommandBuilder,
   EmbedBuilder,
-  userMention,
   Colors,
+  userMention,
 } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("userinfo")
-    .setDescription("Displays a detailed, dynamic user profile.")
+    .setDescription("Displays a detailed and dynamic user profile.")
     .addUserOption(option =>
       option
         .setName("target")
@@ -17,166 +17,158 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    // ✅ Always defer reply first — avoids “Unknown interaction”
+    let replied = false;
     try {
-      if (!interaction.deferred && !interaction.replied) {
-        await interaction.deferReply({ ephemeral: false });
-      }
+      await interaction.deferReply({ ephemeral: false });
+      replied = true;
     } catch (err) {
       console.warn("[userinfo] Failed to defer:", err.message);
-      return;
     }
 
-    try {
-      const target = interaction.options.getUser("target") || interaction.user;
-      const fetchedUser = await interaction.client.users
-        .fetch(target.id, { force: true })
-        .catch(() => target);
+    const target = interaction.options.getUser("target") || interaction.user;
+    const client = interaction.client;
 
-      // Fetch member with presences (if available)
-      let member = await interaction.guild.members.fetch(target.id).catch(() => null);
-      let presence = member?.presence || null;
+    const fetchedUser = await client.users.fetch(target.id, { force: true }).catch(() => target);
+    let member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
-      // If presence is missing, attempt to refetch with presences
-      if (!presence && member) {
-        try {
-          const fresh = await interaction.guild.members.fetch({
-            user: member.id,
-            withPresences: true,
-          });
-          member = fresh;
-          presence = fresh.presence;
-        } catch {
-          presence = null;
-        }
-      }
-
-      // 🟢 STATUS HANDLING
-      const rawStatus = presence?.status || "offline";
-      const statusTextMap = {
-        online: "🟢 Online",
-        idle: "🌙 Idle",
-        dnd: "⛔ Do Not Disturb",
-        offline: "⚫ Offline / Invisible",
-        invisible: "⚫ Offline / Invisible",
-      };
-      const statusText = statusTextMap[rawStatus] || "⚫ Offline / Invisible";
-      const colorMap = {
-        online: Colors.Green,
-        idle: Colors.Yellow,
-        dnd: Colors.Red,
-        offline: Colors.DarkGrey,
-        invisible: Colors.DarkGrey,
-      };
-      let embedColor = colorMap[rawStatus] || Colors.Blurple;
-
-      // 💻 CLIENT TYPE
-      let clientType = "⚫ Offline";
-      const clientStatus = presence?.clientStatus;
-      if (clientStatus && Object.keys(clientStatus).length > 0) {
-        const map = {
-          desktop: "🖥️ Desktop",
-          web: "🌐 Web",
-          mobile: "📱 Mobile",
-        };
-        clientType = Object.keys(clientStatus)
-          .map(key => map[key] || key)
-          .join(", ");
-      }
-
-      // 🎨 VISUALS
-      const avatarURL = fetchedUser.displayAvatarURL({ size: 1024, dynamic: true });
-      const bannerURL = fetchedUser.bannerURL({ size: 2048, dynamic: true });
-      const accentColor = fetchedUser.hexAccentColor || null;
-      const hasAnimated = fetchedUser.avatar?.startsWith("a_");
-      const hasNitro = hasAnimated || bannerURL || accentColor;
-      if (hasNitro && accentColor) embedColor = accentColor;
-
-      // 🕒 TIMESTAMPS
-      const createdTs = Math.floor(fetchedUser.createdTimestamp / 1000);
-      const created = `<t:${createdTs}:D> (<t:${createdTs}:R>)`;
-      let joined = "Unknown";
-      if (member?.joinedTimestamp) {
-        const joinedTs = Math.floor(member.joinedTimestamp / 1000);
-        joined = `<t:${joinedTs}:D> (<t:${joinedTs}:R>)`;
-      }
-
-      // 🏆 ROLES
-      const roles =
-        member?.roles.cache
-          .filter(r => r.id !== interaction.guild.id)
-          .sort((a, b) => b.position - a.position)
-          .map(r => r.toString())
-          .slice(0, 10)
-          .join(", ") || "None";
-      const topRole = member?.roles.highest?.toString() || "None";
-      const boosting = member?.premiumSince ? "✅ Yes" : "❌ No";
-
-      // 🧭 JOIN POSITION
-      let joinPosition = "Unknown";
+    // Refresh presence if missing
+    let presence = member?.presence;
+    if (!presence && member) {
       try {
-        const allMembers = await interaction.guild.members.fetch();
-        const sorted = allMembers.sort((a, b) => a.joinedTimestamp - b.joinedTimestamp);
-        const pos = sorted.map(m => m.id).indexOf(member.id) + 1;
-        joinPosition = `#${pos} / ${allMembers.size}`;
-      } catch {}
+        const fresh = await interaction.guild.members.fetch(member.id, { withPresences: true });
+        member = fresh;
+        presence = fresh.presence;
+      } catch {
+        presence = null;
+      }
+    }
 
-      // 👑 FOOTER
-      const footerText =
-        interaction.user.id === "582502664252686356"
-          ? `🧠 Developer • ${interaction.client.user.username}`
-          : hasNitro
-          ? `Nitro User • Requested by ${interaction.user.tag}`
-          : `Requested by ${interaction.user.tag}`;
+    // Status icons & colors
+    const statusIcons = {
+      online: "🟢 Online",
+      idle: "🌙 Idle",
+      dnd: "⛔ Do Not Disturb",
+      offline: "⚫ Offline / Invisible",
+      invisible: "⚫ Offline / Invisible",
+    };
+    const statusColors = {
+      online: Colors.Green,
+      idle: Colors.Yellow,
+      dnd: Colors.Red,
+      offline: Colors.DarkButNotBlack,
+      invisible: Colors.DarkGrey,
+    };
+    const rawStatus = presence?.status || "offline";
+    const statusText = statusIcons[rawStatus] || "⚫ Offline / Invisible";
+    let embedColor = statusColors[rawStatus] || Colors.Blurple;
 
-      // 📜 EMBED
-      const embed = new EmbedBuilder()
-        .setAuthor({ name: `${fetchedUser.tag} | Profile Summary`, iconURL: avatarURL })
-        .setColor(embedColor)
-        .setThumbnail(avatarURL)
-        .setDescription(`${userMention(fetchedUser.id)}’s profile overview`)
-        .addFields(
-          { name: "🆔 Identifier", value: `\`${fetchedUser.id}\``, inline: true },
-          { name: "📅 Created", value: created, inline: true },
-          { name: "📥 Joined Server", value: joined, inline: true },
-          { name: "📊 Join Position", value: joinPosition, inline: true },
-          { name: "🌐 Status", value: statusText, inline: true },
-          { name: "💻 Client Type", value: clientType, inline: true },
-          { name: "⭐ Booster", value: boosting, inline: true },
-          { name: "🎭 Top Role", value: topRole, inline: true },
-          { name: "🎨 Roles", value: roles, inline: false },
-          { name: "🖼️ Avatar", value: `[Click to view](${avatarURL})`, inline: true },
-          {
-            name: "🏷️ Banner",
-            value: bannerURL ? `[Click to view](${bannerURL})` : "None",
-            inline: true,
-          }
-        )
-        .setFooter({ text: footerText })
-        .setTimestamp();
+    // Client device type
+    let clientType = "⚫ Offline";
+    const clientStatus = presence?.clientStatus;
+    if (clientStatus && Object.keys(clientStatus).length > 0) {
+      const deviceMap = {
+        desktop: "🖥️ Desktop",
+        mobile: "📱 Mobile",
+        web: "🌐 Web",
+      };
+      clientType = Object.keys(clientStatus)
+        .map(device => deviceMap[device] || device)
+        .join(", ");
+    }
 
-      if (bannerURL) embed.setImage(bannerURL);
+    // Avatar, banner, accent
+    const avatarURL = fetchedUser.displayAvatarURL({ size: 1024, dynamic: true });
+    const bannerURL = fetchedUser.bannerURL({ size: 2048, dynamic: true });
+    const accentColor = fetchedUser.hexAccentColor || null;
 
-      // ✅ Always respond safely
-      if (interaction.deferred || interaction.replied) {
-        await interaction.editReply({ embeds: [embed] }).catch(console.error);
+    const hasAnimatedAvatar = fetchedUser.avatar?.startsWith("a_");
+    const hasBanner = Boolean(bannerURL);
+    const hasNitro = hasAnimatedAvatar || hasBanner || Boolean(accentColor);
+
+    if (hasNitro && accentColor) embedColor = accentColor;
+
+    // Timestamps
+    const createdTs = Math.floor(fetchedUser.createdTimestamp / 1000);
+    const created = `<t:${createdTs}:D> (<t:${createdTs}:R>)`;
+
+    let joined = "Unknown";
+    if (member?.joinedTimestamp) {
+      const joinedTs = Math.floor(member.joinedTimestamp / 1000);
+      joined = `<t:${joinedTs}:D> (<t:${joinedTs}:R>)`;
+    }
+
+    // Join position
+    let joinPosition = "Unknown";
+    if (member) {
+      const members = (await interaction.guild.members.fetch()).sort(
+        (a, b) => a.joinedTimestamp - b.joinedTimestamp
+      );
+      const position = [...members.keys()].indexOf(member.id) + 1;
+      joinPosition = `#${position} / ${members.size}`;
+    }
+
+    // Roles
+    const roles =
+      member?.roles.cache
+        .filter(r => r.id !== interaction.guild.id)
+        .sort((a, b) => b.position - a.position)
+        .map(r => r.toString())
+        .slice(0, 10)
+        .join(" ") || "None";
+
+    const topRole = member?.roles.highest?.toString() || "None";
+    const boosting = member?.premiumSince ? "✅ Yes" : "❌ No";
+
+    // Build embed
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: `${fetchedUser.tag} | Profile Summary`,
+        iconURL: avatarURL,
+      })
+      .setDescription(`${userMention(fetchedUser.id)}’s profile overview`)
+      .setColor(embedColor)
+      .setThumbnail(avatarURL)
+      .addFields(
+        { name: "🆔 Identifier", value: `\`${fetchedUser.id}\``, inline: true },
+        { name: "📅 Created", value: created, inline: true },
+        { name: "📥 Joined Server", value: joined, inline: true },
+        { name: "📊 Join Position", value: joinPosition, inline: true },
+        { name: "🌐 Status", value: statusText, inline: true },
+        { name: "💻 Client Type", value: clientType, inline: true },
+        { name: "⭐ Booster", value: boosting, inline: true },
+        { name: "🎭 Top Role", value: topRole, inline: true },
+        { name: "🎨 Roles", value: roles, inline: false },
+        { name: "🖼️ Avatar", value: `[Click to view](${avatarURL})`, inline: true },
+        {
+          name: "🏷️ Banner",
+          value: bannerURL ? `[Click to view](${bannerURL})` : "None",
+          inline: true,
+        }
+      )
+      .setFooter({
+        text: hasNitro
+          ? `✨ Nitro User • Requested by ${interaction.user.tag}`
+          : `Requested by ${interaction.user.tag}`,
+      })
+      .setTimestamp();
+
+    if (bannerURL) embed.setImage(bannerURL);
+
+    // Send safely
+    try {
+      if (replied) {
+        await interaction.editReply({ embeds: [embed] });
       } else {
-        await interaction.reply({ embeds: [embed] }).catch(console.error);
+        await interaction.followUp({ embeds: [embed], ephemeral: false });
       }
     } catch (err) {
-      console.error("[userinfo] Fatal error:", err);
-      try {
-        if (interaction.deferred || interaction.replied) {
-          await interaction.editReply({
-            content: "❌ Failed to load user info.",
-          });
-        } else {
-          await interaction.reply({
-            content: "❌ Failed to load user info.",
-            ephemeral: true,
-          });
-        }
-      } catch {}
+      console.error("[userinfo] Send failed:", err);
+      if (!interaction.replied) {
+        await interaction.reply({
+          content: "❌ Failed to send user info embed.",
+          ephemeral: true,
+        }).catch(() => {});
+      }
     }
   },
 };
