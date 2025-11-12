@@ -3,13 +3,13 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
-  ComponentType
+  ComponentType,
 } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("help")
-    .setDescription("Displays all bot commands by category."),
+    .setDescription("Browse all bot commands by category."),
 
   async execute(interaction) {
     const client = interaction.client;
@@ -20,7 +20,7 @@ module.exports = {
         "createlink",
         "leaveServer",
         "restart",
-        "serverList"
+        "serverList",
       ],
 
       Moderation: [
@@ -40,7 +40,7 @@ module.exports = {
         "setupMuteRole",
         "mutedlist",
         "snipe",
-        "editsnipe"
+        "editsnipe",
       ],
 
       Fun: [
@@ -52,7 +52,8 @@ module.exports = {
         "ship",
         "hug",
         "slap",
-        "kiss"
+        "kiss",
+        "smoke",
       ],
 
       Public: [
@@ -63,65 +64,74 @@ module.exports = {
         "botinfo",
         "invite",
         "afk",
-        "balance"
-      ]
+        "balance",
+        "crypto",
+        "spotify",
+        "tts",
+      ],
     };
 
-    // Dropdown menu options
-    const options = Object.keys(categories).map(cat => ({
+    // Dropdown options
+    const options = Object.keys(categories).map((cat) => ({
       label: cat,
       description: `View ${cat} commands.`,
-      value: cat
+      value: cat,
     }));
 
     const menu = new StringSelectMenuBuilder()
       .setCustomId("help-menu")
-      .setPlaceholder("Select a category to view commands")
+      .setPlaceholder("📂 Select a category to view commands")
       .addOptions(options);
 
     const row = new ActionRowBuilder().addComponents(menu);
 
-    // --- Homepage Embed ---
+    // --- Refined homepage embed ---
     const introEmbed = new EmbedBuilder()
       .setAuthor({
-        name: `${client.user.username} Command Directory`,
-        iconURL: client.user.displayAvatarURL({ size: 256 })
+        name: `${client.user.username} Help Center`,
+        iconURL: client.user.displayAvatarURL({ size: 256 }),
       })
       .setDescription(
         [
-          "Welcome to the command menu.",
+          "### 👋 Welcome to the Help Menu!",
+          "Easily browse through all available commands, neatly organized by category.",
           "",
-          "• Use the dropdown below to browse command categories.",
-          "• Commands marked with `*` include subcommands or advanced options.",
+          "📁 **Categories:**",
+          "• Developer — Owner-only utilities & control tools.",
+          "• Moderation — Manage your server & users.",
+          "• Fun — Roleplay, memes, and entertainment.",
+          "• Public — General info, utilities, and tools.",
           "",
-          "This bot provides moderation, fun, and utility features designed to make server management effortless and intuitive.",
+          "Use the **dropdown below** to select a category.",
           "",
-          `Developer: ${client.application?.owner?.tag || "Hydro.17"}`
+          `> 👑 Developer: ${client.application?.owner?.tag || "Hydro.17"}`
         ].join("\n")
       )
-      .setColor("#2b6cb0")
+      .setThumbnail(client.user.displayAvatarURL({ size: 512 }))
+      .setColor("#3b82f6")
       .setFooter({
-        text: "Use /help again anytime to reopen this menu."
-      });
+        text: "Use /help anytime to reopen this menu.",
+      })
+      .setTimestamp();
 
     // Send main embed
     const msg = await interaction.reply({
       embeds: [introEmbed],
       components: [row],
-      ephemeral: false
+      ephemeral: false,
     });
 
     // --- Dropdown collector ---
     const collector = msg.createMessageComponentCollector({
       componentType: ComponentType.StringSelect,
-      time: 120000
+      time: 120000,
     });
 
-    collector.on("collect", async i => {
+    collector.on("collect", async (i) => {
       if (i.user.id !== interaction.user.id) {
         return i.reply({
-          content: "You cannot interact with this help menu.",
-          ephemeral: true
+          content: "❌ You cannot use this menu.",
+          ephemeral: true,
         });
       }
 
@@ -129,35 +139,32 @@ module.exports = {
       const cmds = categories[cat] || [];
 
       const desc = cmds
-        .map(name => {
+        .map((name) => {
           const cmd = client.commands.get(name);
-          const data = cmd?.data;
-          const hasSub = data?.options?.some(o => o.type === 1);
-          const subMark = hasSub ? "*" : "";
-          return `• **/${data?.name || name}${subMark}** — ${data?.description || "No description provided."}`;
+          return `• **/${cmd?.data?.name || name}** — ${cmd?.data?.description || "No description available."}`;
         })
         .join("\n");
 
       const embed = new EmbedBuilder()
         .setAuthor({
           name: `${cat} Commands`,
-          iconURL: client.user.displayAvatarURL({ size: 256 })
+          iconURL: client.user.displayAvatarURL({ size: 256 }),
         })
         .setDescription(desc || "No commands found in this category.")
-        .setColor("#2b6cb0")
+        .setColor("#3b82f6")
         .setFooter({
-          text: "Select another category to view more commands."
+          text: "Select another category to view more commands.",
         });
 
       await i.update({ embeds: [embed], components: [row] });
     });
 
-    // --- Disable after timeout ---
+    // --- Disable menu after 2 minutes ---
     collector.on("end", async () => {
       const disabled = new ActionRowBuilder().addComponents(
         StringSelectMenuBuilder.from(menu).setDisabled(true)
       );
       await msg.edit({ components: [disabled] }).catch(() => {});
     });
-  }
+  },
 };
