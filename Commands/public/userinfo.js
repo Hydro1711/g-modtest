@@ -20,13 +20,12 @@ module.exports = {
     await interaction.deferReply({ ephemeral: false }).catch(() => {});
 
     const target = interaction.options.getUser("target") || interaction.user;
-
     const fetchedUser = await interaction.client.users
       .fetch(target.id, { force: true })
       .catch(() => target);
-
     let member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
+    // Presence Handling
     let presence = member?.presence || null;
     if (!presence && member) {
       try {
@@ -38,7 +37,7 @@ module.exports = {
       }
     }
 
-    // ✅ Improved status handling
+    // Status Mapping
     const rawStatus = presence?.status || "offline";
     const statusLabelMap = {
       online: "🟢 Online",
@@ -47,8 +46,17 @@ module.exports = {
       offline: "⚫ Offline / Invisible",
       invisible: "⚫ Offline / Invisible",
     };
+    const statusEmojiMap = {
+      online: "🟢",
+      idle: "🌙",
+      dnd: "⛔",
+      offline: "⚫",
+      invisible: "⚫",
+    };
     const statusText = statusLabelMap[rawStatus] || "⚫ Offline / Invisible";
+    const statusEmoji = statusEmojiMap[rawStatus] || "⚫";
 
+    // Dynamic color
     const statusColorMap = {
       online: Colors.Green,
       idle: Colors.Yellow,
@@ -58,7 +66,7 @@ module.exports = {
     };
     let embedColor = statusColorMap[rawStatus] || Colors.Blurple;
 
-    // ✅ Improved client type detection
+    // Client Type
     let clientType = "⚫ Offline";
     const clientStatus = presence?.clientStatus;
     if (clientStatus && Object.keys(clientStatus).length > 0) {
@@ -73,24 +81,19 @@ module.exports = {
       clientType = devices || "Unknown";
     }
 
-    const avatarURL = fetchedUser.displayAvatarURL({
-      size: 1024,
-      dynamic: true,
-    });
-    const bannerURL = fetchedUser.bannerURL({
-      size: 2048,
-      dynamic: true,
-    });
+    // Visuals (Avatar, Banner, Nitro)
+    const avatarURL = fetchedUser.displayAvatarURL({ size: 1024, dynamic: true });
+    const bannerURL = fetchedUser.bannerURL({ size: 2048, dynamic: true });
     const accentColor = fetchedUser.hexAccentColor || null;
 
     const hasAnimatedAvatar =
-      typeof fetchedUser.avatar === "string" &&
-      fetchedUser.avatar.startsWith("a_");
+      typeof fetchedUser.avatar === "string" && fetchedUser.avatar.startsWith("a_");
     const hasBanner = Boolean(bannerURL);
     const hasNitro = hasAnimatedAvatar || hasBanner || Boolean(accentColor);
 
     if (hasNitro && accentColor) embedColor = accentColor;
 
+    // Dates
     const createdTs = Math.floor(fetchedUser.createdTimestamp / 1000);
     const created = `<t:${createdTs}:D> (<t:${createdTs}:R>)`;
 
@@ -100,6 +103,7 @@ module.exports = {
       joined = `<t:${joinedTs}:D> (<t:${joinedTs}:R>)`;
     }
 
+    // Roles
     const roles =
       member?.roles.cache
         .filter(r => r.id !== interaction.guild.id)
@@ -111,11 +115,34 @@ module.exports = {
     const topRole = member?.roles.highest?.toString() || "None";
     const boosting = member?.premiumSince ? "✅ Yes" : "❌ No";
 
+    // Join Position
+    let joinPosition = "Unknown";
+    try {
+      const members = await interaction.guild.members.fetch();
+      const sorted = members.sort((a, b) => a.joinedTimestamp - b.joinedTimestamp);
+      joinPosition = `#${sorted.map(m => m.id).indexOf(member.id) + 1} / ${members.size}`;
+    } catch {
+      joinPosition = "Unknown";
+    }
+
+    // ✨ Nitro badge shimmer
+    const nitroBadge = hasNitro ? "✨" : "";
+
+    // Developer Mode Footer
+    const footerText =
+      interaction.user.id === "582502664252686356"
+        ? `🧠 Developer Mode • ${interaction.client.user.username}`
+        : hasNitro
+        ? `Nitro User • Requested by ${interaction.user.tag}`
+        : `Requested by ${interaction.user.tag}`;
+
+    // Build Embed
     const embed = new EmbedBuilder()
       .setAuthor({
-        name: `${fetchedUser.tag} | Profile Summary`,
+        name: `${statusEmoji} ${fetchedUser.tag} | Profile Summary`,
         iconURL: avatarURL,
       })
+      .setTitle(`${nitroBadge} ${fetchedUser.username}’s Profile ${nitroBadge}`)
       .setDescription(`${userMention(fetchedUser.id)}’s profile overview`)
       .setColor(embedColor)
       .setThumbnail(avatarURL)
@@ -123,23 +150,16 @@ module.exports = {
         { name: "🆔 Identifier", value: `\`${fetchedUser.id}\``, inline: true },
         { name: "📅 Created", value: created, inline: true },
         { name: "📥 Joined Server", value: joined, inline: true },
+        { name: "📊 Join Position", value: joinPosition, inline: true },
         { name: "🌐 Status", value: statusText, inline: true },
         { name: "💻 Client Type", value: clientType, inline: true },
         { name: "⭐ Booster", value: boosting, inline: true },
         { name: "🎭 Top Role", value: topRole, inline: true },
         { name: "🎨 Roles", value: roles, inline: false },
         { name: "🖼️ Avatar", value: `[Click to view](${avatarURL})`, inline: true },
-        {
-          name: "🏷️ Banner",
-          value: bannerURL ? `[Click to view](${bannerURL})` : "None",
-          inline: true,
-        }
+        { name: "🏷️ Banner", value: bannerURL ? `[Click to view](${bannerURL})` : "None", inline: true }
       )
-      .setFooter({
-        text: hasNitro
-          ? `Nitro User • Requested by ${interaction.user.tag}`
-          : `Requested by ${interaction.user.tag}`,
-      })
+      .setFooter({ text: footerText })
       .setTimestamp();
 
     if (bannerURL) embed.setImage(bannerURL);
