@@ -1,24 +1,12 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const fetch = require("node-fetch");
 
-// 🧩 Helper: Timeout Fetch
-const timeoutFetch = (url, ms = 5000) =>
-  Promise.race([
-    fetch(url),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Request timeout")), ms)
-    ),
-  ]);
-
-// 🪙 Helper: Fallback API Fetcher
 async function fetchCryptoData(coin) {
-  const symbol = coin.toLowerCase();
+  const id = coin.toLowerCase();
 
-  // 1️⃣ CoinGecko API
+  // Try CoinGecko first
   try {
-    const res = await timeoutFetch(
-      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${symbol}`
-    );
+    const res = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${id}`);
     const data = await res.json();
     if (Array.isArray(data) && data.length > 0) {
       const c = data[0];
@@ -34,45 +22,15 @@ async function fetchCryptoData(coin) {
     }
   } catch {}
 
-  // 2️⃣ CoinPaprika API
+  // Try CryptoCompare as fallback
   try {
-    const listRes = await timeoutFetch("https://api.coinpaprika.com/v1/coins");
-    const list = await listRes.json();
-    const match = list.find(
-      (c) =>
-        c.symbol.toLowerCase() === symbol ||
-        c.name.toLowerCase() === symbol ||
-        c.id.toLowerCase().includes(symbol)
-    );
-
-    if (match) {
-      const infoRes = await timeoutFetch(
-        `https://api.coinpaprika.com/v1/tickers/${match.id}`
-      );
-      const info = await infoRes.json();
-      return {
-        name: info.name,
-        symbol: info.symbol,
-        price: info.quotes.USD.price,
-        change24h: info.quotes.USD.percent_change_24h,
-        marketCap: info.quotes.USD.market_cap,
-        image: null,
-        source: "CoinPaprika",
-      };
-    }
-  } catch {}
-
-  // 3️⃣ CryptoCompare API
-  try {
-    const res = await timeoutFetch(
-      `https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${symbol.toUpperCase()}&tsyms=USD`
-    );
+    const res = await fetch(`https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${id.toUpperCase()}&tsyms=USD`);
     const data = await res.json();
-    const coinData = data.DISPLAY?.[symbol.toUpperCase()]?.USD;
+    const coinData = data.DISPLAY?.[id.toUpperCase()]?.USD;
     if (coinData) {
       return {
-        name: symbol.toUpperCase(),
-        symbol: symbol.toUpperCase(),
+        name: id.toUpperCase(),
+        symbol: id.toUpperCase(),
         price: coinData.PRICE,
         change24h: coinData.CHANGEPCT24HOUR,
         marketCap: coinData.MKTCAP,
@@ -85,93 +43,54 @@ async function fetchCryptoData(coin) {
   return null;
 }
 
-// ⚙️ Slash Command Definition
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("crypto")
-    .setDescription("💰 Get live cryptocurrency information.")
-    .addStringOption((option) =>
+    .setDescription("💰 Get live cryptocurrency info (no subcommands).")
+    .addStringOption(option =>
       option
         .setName("coin")
-        .setDescription("Enter the cryptocurrency name or symbol (e.g. bitcoin, eth, doge)")
+        .setDescription("Enter a cryptocurrency name or symbol (e.g. bitcoin, eth)")
         .setRequired(true)
         .addChoices(
           { name: "Bitcoin (BTC)", value: "bitcoin" },
           { name: "Ethereum (ETH)", value: "ethereum" },
           { name: "Dogecoin (DOGE)", value: "dogecoin" },
           { name: "Solana (SOL)", value: "solana" },
-          { name: "XRP (XRP)", value: "xrp" },
+          { name: "BNB", value: "binancecoin" },
           { name: "Cardano (ADA)", value: "cardano" },
+          { name: "XRP", value: "xrp" },
           { name: "Litecoin (LTC)", value: "litecoin" },
-          { name: "BNB (BNB)", value: "binancecoin" },
           { name: "Polkadot (DOT)", value: "polkadot" },
           { name: "Avalanche (AVAX)", value: "avalanche" }
         )
     ),
 
   async execute(interaction) {
+    const coin = interaction.options.getString("coin");
+    await interaction.deferReply();
+
     try {
-      const coinInput =
-        interaction.options.getString("coin")?.toLowerCase().trim() || "bitcoin";
-
-      await interaction.deferReply();
-
-      const data = await fetchCryptoData(coinInput);
+      const data = await fetchCryptoData(coin);
       if (!data) {
-        return await interaction.editReply({
-          content: "❌ Could not fetch crypto data. Try a different coin symbol.",
-        });
+        return interaction.editReply("❌ Could not fetch crypto data. Try again.");
       }
 
       const embed = new EmbedBuilder()
         .setColor("#2b6cb0")
         .setTitle(`${data.name} (${data.symbol})`)
-        .setDescription("💹 Live cryptocurrency data")
+        .setThumbnail(data.image || null)
         .addFields(
-          {
-            name: "💰 Price",
-            value:
-              typeof data.price === "number"
-                ? `$${data.price.toLocaleString()}`
-                : data.price,
-            inline: true,
-          },
-          {
-            name: "📉 24h Change",
-            value:
-              typeof data.change24h === "number"
-                ? `${data.change24h.toFixed(2)}%`
-                : `${data.change24h}%`,
-            inline: true,
-          },
-          {
-            name: "🏦 Market Cap",
-            value:
-              typeof data.marketCap === "number"
-                ? `$${data.marketCap.toLocaleString()}`
-                : data.marketCap,
-            inline: true,
-          }
+          { name: "💰 Price", value: `$${data.price.toLocaleString()}`, inline: true },
+          { name: "📉 24h Change", value: `${data.change24h.toFixed(2)}%`, inline: true },
+          { name: "🏦 Market Cap", value: `$${data.marketCap.toLocaleString()}`, inline: true }
         )
-        .setFooter({
-          text: `Source: ${data.source} • ${new Date().toLocaleTimeString()}`,
-        });
-
-      if (data.image) embed.setThumbnail(data.image);
+        .setFooter({ text: `Source: ${data.source} • Updated ${new Date().toLocaleTimeString()}` });
 
       await interaction.editReply({ embeds: [embed] });
     } catch (err) {
-      console.error("[CRYPTO CMD ERROR]", err);
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: "❌ Error executing crypto command.",
-          ephemeral: true,
-        });
-      } else {
-        await interaction.editReply({
-          content: "❌ An unexpected error occurred.",
-        });
-      }
+      console.error(err);
+      await interaction.editReply("❌ An error occurred while fetching crypto data.");
     }
   },
 };
