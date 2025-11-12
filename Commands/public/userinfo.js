@@ -17,24 +17,24 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    // 🕐 Step 1 — Defer immediately to prevent "Unknown interaction"
+    await interaction.deferReply({ ephemeral: false }).catch(() => {});
+
     const target = interaction.options.getUser("target") || interaction.user;
 
-    // Fetch full user (for banner, accent color, etc.)
+    // Fetch full user object for banner / accent color
     const fetchedUser = await interaction.client.users
       .fetch(target.id, { force: true })
       .catch(() => target);
 
-    // Fetch member (for roles, presence, etc.)
+    // Fetch full guild member for roles, presence, etc.
     let member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
     // ---------- Presence & Status ----------
-    // Try to ensure we have presence data
     let presence = member?.presence || null;
     if (!presence && member) {
       try {
-        const fresh = await interaction.guild.members.fetch(member.id, {
-          withPresences: true,
-        });
+        const fresh = await interaction.guild.members.fetch(member.id, { withPresences: true });
         member = fresh;
         presence = fresh.presence;
       } catch {
@@ -43,7 +43,6 @@ module.exports = {
     }
 
     const rawStatus = presence?.status || "offline";
-
     const statusLabelMap = {
       online: "🟢 Online",
       idle: "🌙 Idle",
@@ -51,10 +50,9 @@ module.exports = {
       offline: "⚫ Offline / Invisible",
       invisible: "⚫ Offline / Invisible",
     };
-
     const statusText = statusLabelMap[rawStatus] || "⚫ Offline / Invisible";
 
-    // Dynamic embed color based on status
+    // Dynamic color based on status
     const statusColorMap = {
       online: Colors.Green,
       idle: Colors.Yellow,
@@ -62,10 +60,9 @@ module.exports = {
       offline: Colors.DarkButNotBlack,
       invisible: Colors.DarkGrey,
     };
-
     let embedColor = statusColorMap[rawStatus] || Colors.Blurple;
 
-    // ---------- Client Type (Desktop / Mobile / Web) ----------
+    // ---------- Client Type ----------
     let clientType = "Unknown";
     const clientStatus = presence?.clientStatus;
     if (clientStatus) {
@@ -97,10 +94,7 @@ module.exports = {
     const hasBanner = Boolean(bannerURL);
     const hasNitro = hasAnimatedAvatar || hasBanner || Boolean(accentColor);
 
-    // If Nitro + accent color, let the profile color override status color
-    if (hasNitro && accentColor) {
-      embedColor = accentColor;
-    }
+    if (hasNitro && accentColor) embedColor = accentColor;
 
     // ---------- Dates ----------
     const createdTs = Math.floor(fetchedUser.createdTimestamp / 1000);
@@ -122,8 +116,6 @@ module.exports = {
         .join(", ") || "None";
 
     const topRole = member?.roles.highest?.toString() || "None";
-
-    // ---------- Booster ----------
     const boosting = member?.premiumSince ? "✅ Yes" : "❌ No";
 
     // ---------- Build Embed ----------
@@ -136,51 +128,15 @@ module.exports = {
       .setColor(embedColor)
       .setThumbnail(avatarURL)
       .addFields(
-        {
-          name: "🆔 Identifier",
-          value: `\`${fetchedUser.id}\``,
-          inline: true,
-        },
-        {
-          name: "📅 Created",
-          value: created,
-          inline: true,
-        },
-        {
-          name: "📥 Joined Server",
-          value: joined,
-          inline: true,
-        },
-        {
-          name: "🌐 Status",
-          value: statusText,
-          inline: true,
-        },
-        {
-          name: "💻 Client Type",
-          value: clientType,
-          inline: true,
-        },
-        {
-          name: "⭐ Booster",
-          value: boosting,
-          inline: true,
-        },
-        {
-          name: "🎭 Top Role",
-          value: topRole,
-          inline: true,
-        },
-        {
-          name: "🎨 Roles",
-          value: roles,
-          inline: false,
-        },
-        {
-          name: "🖼️ Avatar",
-          value: `[Click to view](${avatarURL})`,
-          inline: true,
-        },
+        { name: "🆔 Identifier", value: `\`${fetchedUser.id}\``, inline: true },
+        { name: "📅 Created", value: created, inline: true },
+        { name: "📥 Joined Server", value: joined, inline: true },
+        { name: "🌐 Status", value: statusText, inline: true },
+        { name: "💻 Client Type", value: clientType, inline: true },
+        { name: "⭐ Booster", value: boosting, inline: true },
+        { name: "🎭 Top Role", value: topRole, inline: true },
+        { name: "🎨 Roles", value: roles, inline: false },
+        { name: "🖼️ Avatar", value: `[Click to view](${avatarURL})`, inline: true },
         {
           name: "🏷️ Banner",
           value: bannerURL ? `[Click to view](${bannerURL})` : "None",
@@ -194,10 +150,8 @@ module.exports = {
       })
       .setTimestamp();
 
-    if (bannerURL) {
-      embed.setImage(bannerURL);
-    }
+    if (bannerURL) embed.setImage(bannerURL);
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed] }).catch(console.error);
   },
 };
