@@ -17,20 +17,16 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    // 🕐 Step 1 — Defer immediately to prevent "Unknown interaction"
     await interaction.deferReply({ ephemeral: false }).catch(() => {});
 
     const target = interaction.options.getUser("target") || interaction.user;
 
-    // Fetch full user object for banner / accent color
     const fetchedUser = await interaction.client.users
       .fetch(target.id, { force: true })
       .catch(() => target);
 
-    // Fetch full guild member for roles, presence, etc.
     let member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
-    // ---------- Presence & Status ----------
     let presence = member?.presence || null;
     if (!presence && member) {
       try {
@@ -42,6 +38,7 @@ module.exports = {
       }
     }
 
+    // ✅ Improved status handling
     const rawStatus = presence?.status || "offline";
     const statusLabelMap = {
       online: "🟢 Online",
@@ -52,7 +49,6 @@ module.exports = {
     };
     const statusText = statusLabelMap[rawStatus] || "⚫ Offline / Invisible";
 
-    // Dynamic color based on status
     const statusColorMap = {
       online: Colors.Green,
       idle: Colors.Yellow,
@@ -62,22 +58,21 @@ module.exports = {
     };
     let embedColor = statusColorMap[rawStatus] || Colors.Blurple;
 
-    // ---------- Client Type ----------
-    let clientType = "Unknown";
+    // ✅ Improved client type detection
+    let clientType = "⚫ Offline";
     const clientStatus = presence?.clientStatus;
-    if (clientStatus) {
-      const devices = Object.keys(clientStatus);
-      const mapped = devices.map(device =>
-        device === "desktop"
-          ? "🖥️ Desktop"
-          : device === "mobile"
-          ? "📱 Mobile"
-          : "🌐 Web"
-      );
-      if (mapped.length > 0) clientType = mapped.join(", ");
+    if (clientStatus && Object.keys(clientStatus).length > 0) {
+      const deviceMap = {
+        desktop: "🖥️ Desktop",
+        mobile: "📱 Mobile",
+        web: "🌐 Web",
+      };
+      const devices = Object.keys(clientStatus)
+        .map(device => deviceMap[device] || device)
+        .join(", ");
+      clientType = devices || "Unknown";
     }
 
-    // ---------- Avatar / Banner / Nitro ----------
     const avatarURL = fetchedUser.displayAvatarURL({
       size: 1024,
       dynamic: true,
@@ -96,7 +91,6 @@ module.exports = {
 
     if (hasNitro && accentColor) embedColor = accentColor;
 
-    // ---------- Dates ----------
     const createdTs = Math.floor(fetchedUser.createdTimestamp / 1000);
     const created = `<t:${createdTs}:D> (<t:${createdTs}:R>)`;
 
@@ -106,7 +100,6 @@ module.exports = {
       joined = `<t:${joinedTs}:D> (<t:${joinedTs}:R>)`;
     }
 
-    // ---------- Roles ----------
     const roles =
       member?.roles.cache
         .filter(r => r.id !== interaction.guild.id)
@@ -118,7 +111,6 @@ module.exports = {
     const topRole = member?.roles.highest?.toString() || "None";
     const boosting = member?.premiumSince ? "✅ Yes" : "❌ No";
 
-    // ---------- Build Embed ----------
     const embed = new EmbedBuilder()
       .setAuthor({
         name: `${fetchedUser.tag} | Profile Summary`,
