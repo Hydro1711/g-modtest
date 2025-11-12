@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const fetch = require("node-fetch");
 
-// --- Helper: Timeout Fetch ---
+// 🧩 Helper: Timeout Fetch
 const timeoutFetch = (url, ms = 5000) =>
   Promise.race([
     fetch(url),
@@ -10,11 +10,11 @@ const timeoutFetch = (url, ms = 5000) =>
     ),
   ]);
 
-// --- Helper: Fallback API Fetch ---
+// 🪙 Helper: Fallback API Fetcher
 async function fetchCryptoData(coin) {
   const symbol = coin.toLowerCase();
 
-  // 1️⃣ CoinGecko
+  // 1️⃣ CoinGecko API
   try {
     const res = await timeoutFetch(
       `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${symbol}`
@@ -34,7 +34,7 @@ async function fetchCryptoData(coin) {
     }
   } catch {}
 
-  // 2️⃣ CoinPaprika
+  // 2️⃣ CoinPaprika API
   try {
     const listRes = await timeoutFetch("https://api.coinpaprika.com/v1/coins");
     const list = await listRes.json();
@@ -62,7 +62,7 @@ async function fetchCryptoData(coin) {
     }
   } catch {}
 
-  // 3️⃣ CryptoCompare
+  // 3️⃣ CryptoCompare API
   try {
     const res = await timeoutFetch(
       `https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${symbol.toUpperCase()}&tsyms=USD`
@@ -85,7 +85,7 @@ async function fetchCryptoData(coin) {
   return null;
 }
 
-// --- Main Command ---
+// ⚙️ Slash Command Definition
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("crypto")
@@ -93,7 +93,7 @@ module.exports = {
     .addStringOption((option) =>
       option
         .setName("coin")
-        .setDescription("Choose a cryptocurrency or enter a name manually.")
+        .setDescription("Enter the cryptocurrency name or symbol (e.g. bitcoin, eth, doge)")
         .setRequired(true)
         .addChoices(
           { name: "Bitcoin (BTC)", value: "bitcoin" },
@@ -107,53 +107,26 @@ module.exports = {
           { name: "Polkadot (DOT)", value: "polkadot" },
           { name: "Avalanche (AVAX)", value: "avalanche" }
         )
-    )
-    .addSubcommand((sub) =>
-      sub
-        .setName("price")
-        .setDescription("Shows the current price of a cryptocurrency.")
-        .addStringOption((opt) =>
-          opt
-            .setName("coin")
-            .setDescription("Cryptocurrency name or symbol")
-            .setRequired(true)
-        )
-    )
-    .addSubcommand((sub) =>
-      sub
-        .setName("chart")
-        .setDescription("Displays a 7-day price chart of a cryptocurrency.")
-        .addStringOption((opt) =>
-          opt
-            .setName("coin")
-            .setDescription("Cryptocurrency name or symbol")
-            .setRequired(true)
-        )
     ),
 
   async execute(interaction) {
     try {
-      const sub = interaction.options.getSubcommand();
       const coinInput =
-        interaction.options.getString("coin")?.toLowerCase() || "bitcoin";
+        interaction.options.getString("coin")?.toLowerCase().trim() || "bitcoin";
 
       await interaction.deferReply();
 
       const data = await fetchCryptoData(coinInput);
       if (!data) {
         return await interaction.editReply({
-          content: "❌ API error or invalid coin name.",
+          content: "❌ Could not fetch crypto data. Try a different coin symbol.",
         });
       }
 
       const embed = new EmbedBuilder()
         .setColor("#2b6cb0")
         .setTitle(`${data.name} (${data.symbol})`)
-        .setDescription(
-          sub === "chart"
-            ? "⚠️ Chart unavailable for this source."
-            : "Live cryptocurrency data"
-        )
+        .setDescription("💹 Live cryptocurrency data")
         .addFields(
           {
             name: "💰 Price",
