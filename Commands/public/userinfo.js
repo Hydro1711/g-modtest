@@ -2,13 +2,13 @@ const {
   SlashCommandBuilder,
   EmbedBuilder,
   userMention,
-  Colors
+  Colors,
 } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("userinfo")
-    .setDescription("Displays a fully enhanced user profile with live presence details.")
+    .setDescription("Displays a detailed, dynamic user profile.")
     .addUserOption(option =>
       option
         .setName("target")
@@ -18,57 +18,101 @@ module.exports = {
 
   async execute(interaction) {
     const target = interaction.options.getUser("target") || interaction.user;
-    const fetchedUser = await interaction.client.users.fetch(target.id, { force: true }).catch(() => target);
-    const member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
-    // --- Presence / Status Handling ---
-    const presence = member?.presence || null;
-    const status = presence?.status || "offline";
+    // Fetch full user (for banner, accent color, etc.)
+    const fetchedUser = await interaction.client.users
+      .fetch(target.id, { force: true })
+      .catch(() => target);
 
-    const statusColors = {
+    // Fetch member (for roles, presence, etc.)
+    let member = await interaction.guild.members.fetch(target.id).catch(() => null);
+
+    // ---------- Presence & Status ----------
+    // Try to ensure we have presence data
+    let presence = member?.presence || null;
+    if (!presence && member) {
+      try {
+        const fresh = await interaction.guild.members.fetch(member.id, {
+          withPresences: true,
+        });
+        member = fresh;
+        presence = fresh.presence;
+      } catch {
+        presence = null;
+      }
+    }
+
+    const rawStatus = presence?.status || "offline";
+
+    const statusLabelMap = {
+      online: "🟢 Online",
+      idle: "🌙 Idle",
+      dnd: "⛔ Do Not Disturb",
+      offline: "⚫ Offline / Invisible",
+      invisible: "⚫ Offline / Invisible",
+    };
+
+    const statusText = statusLabelMap[rawStatus] || "⚫ Offline / Invisible";
+
+    // Dynamic embed color based on status
+    const statusColorMap = {
       online: Colors.Green,
       idle: Colors.Yellow,
       dnd: Colors.Red,
       offline: Colors.DarkButNotBlack,
-      invisible: Colors.DarkGrey
+      invisible: Colors.DarkGrey,
     };
 
-    let embedColor = statusColors[status] || Colors.Blurple;
+    let embedColor = statusColorMap[rawStatus] || Colors.Blurple;
 
-    // --- Determine client type (Desktop / Mobile / Web) ---
+    // ---------- Client Type (Desktop / Mobile / Web) ----------
     let clientType = "Unknown";
     const clientStatus = presence?.clientStatus;
     if (clientStatus) {
       const devices = Object.keys(clientStatus);
-      clientType = devices
-        .map(device =>
-          device === "desktop"
-            ? "🖥️ Desktop"
-            : device === "mobile"
-            ? "📱 Mobile"
-            : "🌐 Web"
-        )
-        .join(", ");
+      const mapped = devices.map(device =>
+        device === "desktop"
+          ? "🖥️ Desktop"
+          : device === "mobile"
+          ? "📱 Mobile"
+          : "🌐 Web"
+      );
+      if (mapped.length > 0) clientType = mapped.join(", ");
     }
 
-    // --- Avatar, Banner, and Nitro shimmer ---
-    const avatarURL = fetchedUser.displayAvatarURL({ size: 1024, dynamic: true });
-    const bannerURL = fetchedUser.bannerURL({ size: 2048, dynamic: true });
-    const accentColor = fetchedUser.hexAccentColor;
-    const hasNitro = fetchedUser.avatar?.startsWith("a_") || Boolean(bannerURL);
+    // ---------- Avatar / Banner / Nitro ----------
+    const avatarURL = fetchedUser.displayAvatarURL({
+      size: 1024,
+      dynamic: true,
+    });
+    const bannerURL = fetchedUser.bannerURL({
+      size: 2048,
+      dynamic: true,
+    });
+    const accentColor = fetchedUser.hexAccentColor || null;
 
-    if (hasNitro && bannerURL) {
-      // add a subtle shimmer color shift to match Nitro profile feel
-      embedColor = accentColor || Colors.Blurple;
+    const hasAnimatedAvatar =
+      typeof fetchedUser.avatar === "string" &&
+      fetchedUser.avatar.startsWith("a_");
+    const hasBanner = Boolean(bannerURL);
+    const hasNitro = hasAnimatedAvatar || hasBanner || Boolean(accentColor);
+
+    // If Nitro + accent color, let the profile color override status color
+    if (hasNitro && accentColor) {
+      embedColor = accentColor;
     }
 
-    // --- Account Info ---
-    const created = `<t:${Math.floor(fetchedUser.createdTimestamp / 1000)}:D> (<t:${Math.floor(fetchedUser.createdTimestamp / 1000)}:R>)`;
-    const joined = member?.joinedTimestamp
-      ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:D> (<t:${Math.floor(member.joinedTimestamp / 1000)}:R>)`
-      : "Unknown";
+    // ---------- Dates ----------
+    const createdTs = Math.floor(fetchedUser.createdTimestamp / 1000);
+    const created = `<t:${createdTs}:D> (<t:${createdTs}:R>)`;
 
-    const boosting = member?.premiumSince ? "✅ Boosting" : "❌ Not boosting";
+    let joined = "Unknown";
+    if (member?.joinedTimestamp) {
+      const joinedTs = Math.floor(member.joinedTimestamp / 1000);
+      joined = `<t:${joinedTs}:D> (<t:${joinedTs}:R>)`;
+    }
+
+    // ---------- Roles ----------
     const roles =
       member?.roles.cache
         .filter(r => r.id !== interaction.guild.id)
@@ -77,45 +121,83 @@ module.exports = {
         .slice(0, 10)
         .join(", ") || "None";
 
-    // --- Build final advanced embed ---
+    const topRole = member?.roles.highest?.toString() || "None";
+
+    // ---------- Booster ----------
+    const boosting = member?.premiumSince ? "✅ Yes" : "❌ No";
+
+    // ---------- Build Embed ----------
     const embed = new EmbedBuilder()
       .setAuthor({
         name: `${fetchedUser.tag} | Profile Summary`,
-        iconURL: avatarURL
+        iconURL: avatarURL,
       })
       .setDescription(`${userMention(fetchedUser.id)}’s profile overview`)
       .setColor(embedColor)
       .setThumbnail(avatarURL)
       .addFields(
-        { name: "🆔 Identifier", value: `\`${fetchedUser.id}\``, inline: true },
-        { name: "📅 Created", value: created, inline: true },
-        { name: "📥 Joined Server", value: joined, inline: true },
-        { name: "🌐 Status", value: `\`${status.toUpperCase()}\``, inline: true },
-        { name: "💻 Client Type", value: clientType, inline: true },
-        { name: "⭐ Booster", value: boosting, inline: true },
-        { name: "🎭 Top Role", value: member?.roles.highest?.toString() || "None", inline: true },
-        { name: "🎨 Roles", value: roles, inline: false },
+        {
+          name: "🆔 Identifier",
+          value: `\`${fetchedUser.id}\``,
+          inline: true,
+        },
+        {
+          name: "📅 Created",
+          value: created,
+          inline: true,
+        },
+        {
+          name: "📥 Joined Server",
+          value: joined,
+          inline: true,
+        },
+        {
+          name: "🌐 Status",
+          value: statusText,
+          inline: true,
+        },
+        {
+          name: "💻 Client Type",
+          value: clientType,
+          inline: true,
+        },
+        {
+          name: "⭐ Booster",
+          value: boosting,
+          inline: true,
+        },
+        {
+          name: "🎭 Top Role",
+          value: topRole,
+          inline: true,
+        },
+        {
+          name: "🎨 Roles",
+          value: roles,
+          inline: false,
+        },
         {
           name: "🖼️ Avatar",
           value: `[Click to view](${avatarURL})`,
-          inline: true
+          inline: true,
         },
         {
           name: "🏷️ Banner",
           value: bannerURL ? `[Click to view](${bannerURL})` : "None",
-          inline: true
+          inline: true,
         }
       )
       .setFooter({
         text: hasNitro
           ? `Nitro User • Requested by ${interaction.user.tag}`
-          : `Requested by ${interaction.user.tag}`
+          : `Requested by ${interaction.user.tag}`,
       })
       .setTimestamp();
 
-    // Visually show banner if user has one
-    if (bannerURL) embed.setImage(bannerURL);
+    if (bannerURL) {
+      embed.setImage(bannerURL);
+    }
 
     await interaction.reply({ embeds: [embed] });
-  }
+  },
 };
