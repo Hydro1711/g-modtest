@@ -17,13 +17,13 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    // ✅ 1. Instantly acknowledge the interaction (prevents 'Unknown interaction')
+    // ✅ Always defer reply first — avoids “Unknown interaction”
     try {
       if (!interaction.deferred && !interaction.replied) {
         await interaction.deferReply({ ephemeral: false });
       }
     } catch (err) {
-      console.warn("[userinfo] Failed to defer interaction:", err.message);
+      console.warn("[userinfo] Failed to defer:", err.message);
       return;
     }
 
@@ -32,60 +32,59 @@ module.exports = {
       const fetchedUser = await interaction.client.users
         .fetch(target.id, { force: true })
         .catch(() => target);
-      let member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
-      // ✅ fetch presence safely
+      // Fetch member with presences (if available)
+      let member = await interaction.guild.members.fetch(target.id).catch(() => null);
       let presence = member?.presence || null;
+
+      // If presence is missing, attempt to refetch with presences
       if (!presence && member) {
         try {
           const fresh = await interaction.guild.members.fetch({
             user: member.id,
             withPresences: true,
-            force: true,
           });
           member = fresh;
           presence = fresh.presence;
-        } catch {}
+        } catch {
+          presence = null;
+        }
       }
 
-      // --- STATUS ---
+      // 🟢 STATUS HANDLING
       const rawStatus = presence?.status || "offline";
-      const statusLabelMap = {
+      const statusTextMap = {
         online: "🟢 Online",
         idle: "🌙 Idle",
         dnd: "⛔ Do Not Disturb",
         offline: "⚫ Offline / Invisible",
         invisible: "⚫ Offline / Invisible",
       };
-      const statusText = statusLabelMap[rawStatus] || "⚫ Offline / Invisible";
-      const statusColorMap = {
+      const statusText = statusTextMap[rawStatus] || "⚫ Offline / Invisible";
+      const colorMap = {
         online: Colors.Green,
         idle: Colors.Yellow,
         dnd: Colors.Red,
-        offline: Colors.DarkButNotBlack,
+        offline: Colors.DarkGrey,
         invisible: Colors.DarkGrey,
       };
-      let embedColor = statusColorMap[rawStatus] || Colors.Blurple;
+      let embedColor = colorMap[rawStatus] || Colors.Blurple;
 
-      // --- DEVICE ---
-      let clientType = "Unknown";
+      // 💻 CLIENT TYPE
+      let clientType = "⚫ Offline";
       const clientStatus = presence?.clientStatus;
       if (clientStatus && Object.keys(clientStatus).length > 0) {
         const map = {
           desktop: "🖥️ Desktop",
-          mobile: "📱 Mobile",
           web: "🌐 Web",
+          mobile: "📱 Mobile",
         };
         clientType = Object.keys(clientStatus)
-          .map(k => map[k] || k)
+          .map(key => map[key] || key)
           .join(", ");
-      } else if (rawStatus === "offline" || rawStatus === "invisible") {
-        clientType = "⚫ Offline";
-      } else {
-        clientType = "🟢 Active";
       }
 
-      // --- VISUALS ---
+      // 🎨 VISUALS
       const avatarURL = fetchedUser.displayAvatarURL({ size: 1024, dynamic: true });
       const bannerURL = fetchedUser.bannerURL({ size: 2048, dynamic: true });
       const accentColor = fetchedUser.hexAccentColor || null;
@@ -93,16 +92,16 @@ module.exports = {
       const hasNitro = hasAnimated || bannerURL || accentColor;
       if (hasNitro && accentColor) embedColor = accentColor;
 
-      // --- TIME ---
+      // 🕒 TIMESTAMPS
       const createdTs = Math.floor(fetchedUser.createdTimestamp / 1000);
       const created = `<t:${createdTs}:D> (<t:${createdTs}:R>)`;
       let joined = "Unknown";
       if (member?.joinedTimestamp) {
-        const jTs = Math.floor(member.joinedTimestamp / 1000);
-        joined = `<t:${jTs}:D> (<t:${jTs}:R>)`;
+        const joinedTs = Math.floor(member.joinedTimestamp / 1000);
+        joined = `<t:${joinedTs}:D> (<t:${joinedTs}:R>)`;
       }
 
-      // --- ROLES ---
+      // 🏆 ROLES
       const roles =
         member?.roles.cache
           .filter(r => r.id !== interaction.guild.id)
@@ -113,27 +112,26 @@ module.exports = {
       const topRole = member?.roles.highest?.toString() || "None";
       const boosting = member?.premiumSince ? "✅ Yes" : "❌ No";
 
-      // --- JOIN POSITION ---
+      // 🧭 JOIN POSITION
       let joinPosition = "Unknown";
       try {
-        const members = await interaction.guild.members.fetch();
-        const sorted = members.sort((a, b) => a.joinedTimestamp - b.joinedTimestamp);
-        joinPosition = `#${sorted.map(m => m.id).indexOf(member.id) + 1} / ${members.size}`;
+        const allMembers = await interaction.guild.members.fetch();
+        const sorted = allMembers.sort((a, b) => a.joinedTimestamp - b.joinedTimestamp);
+        const pos = sorted.map(m => m.id).indexOf(member.id) + 1;
+        joinPosition = `#${pos} / ${allMembers.size}`;
       } catch {}
 
+      // 👑 FOOTER
       const footerText =
         interaction.user.id === "582502664252686356"
-          ? `🧠 Developer Mode • ${interaction.client.user.username}`
+          ? `🧠 Developer • ${interaction.client.user.username}`
           : hasNitro
           ? `Nitro User • Requested by ${interaction.user.tag}`
           : `Requested by ${interaction.user.tag}`;
 
-      // --- EMBED ---
+      // 📜 EMBED
       const embed = new EmbedBuilder()
-        .setAuthor({
-          name: `${fetchedUser.tag} | Profile Summary`,
-          iconURL: avatarURL,
-        })
+        .setAuthor({ name: `${fetchedUser.tag} | Profile Summary`, iconURL: avatarURL })
         .setColor(embedColor)
         .setThumbnail(avatarURL)
         .setDescription(`${userMention(fetchedUser.id)}’s profile overview`)
@@ -159,7 +157,7 @@ module.exports = {
 
       if (bannerURL) embed.setImage(bannerURL);
 
-      // ✅ 2. Guaranteed reply (won’t throw even on expired interactions)
+      // ✅ Always respond safely
       if (interaction.deferred || interaction.replied) {
         await interaction.editReply({ embeds: [embed] }).catch(console.error);
       } else {
