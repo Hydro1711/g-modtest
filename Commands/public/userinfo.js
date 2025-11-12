@@ -2,13 +2,13 @@ const {
   SlashCommandBuilder,
   EmbedBuilder,
   userMention,
-  Colors,
+  Colors
 } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("userinfo")
-    .setDescription("Displays a dynamic, detailed user profile.")
+    .setDescription("Displays a fully enhanced user profile with live presence details.")
     .addUserOption(option =>
       option
         .setName("target")
@@ -18,28 +18,51 @@ module.exports = {
 
   async execute(interaction) {
     const target = interaction.options.getUser("target") || interaction.user;
-
-    // Fetch full user for banner/accent color
     const fetchedUser = await interaction.client.users.fetch(target.id, { force: true }).catch(() => target);
     const member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
-    // --- Dynamic Embed Color based on presence ---
-    let presenceColor = Colors.Blurple;
-    if (member?.presence) {
-      const status = member.presence.status;
-      if (status === "online") presenceColor = Colors.Green;
-      else if (status === "idle") presenceColor = Colors.Yellow;
-      else if (status === "dnd") presenceColor = Colors.Red;
-      else presenceColor = Colors.Grey;
-    } else if (fetchedUser.hexAccentColor) {
-      presenceColor = fetchedUser.hexAccentColor;
+    // --- Presence / Status Handling ---
+    const presence = member?.presence || null;
+    const status = presence?.status || "offline";
+
+    const statusColors = {
+      online: Colors.Green,
+      idle: Colors.Yellow,
+      dnd: Colors.Red,
+      offline: Colors.DarkButNotBlack,
+      invisible: Colors.DarkGrey
+    };
+
+    let embedColor = statusColors[status] || Colors.Blurple;
+
+    // --- Determine client type (Desktop / Mobile / Web) ---
+    let clientType = "Unknown";
+    const clientStatus = presence?.clientStatus;
+    if (clientStatus) {
+      const devices = Object.keys(clientStatus);
+      clientType = devices
+        .map(device =>
+          device === "desktop"
+            ? "🖥️ Desktop"
+            : device === "mobile"
+            ? "📱 Mobile"
+            : "🌐 Web"
+        )
+        .join(", ");
     }
 
-    // URLs & data
+    // --- Avatar, Banner, and Nitro shimmer ---
     const avatarURL = fetchedUser.displayAvatarURL({ size: 1024, dynamic: true });
     const bannerURL = fetchedUser.bannerURL({ size: 2048, dynamic: true });
     const accentColor = fetchedUser.hexAccentColor;
+    const hasNitro = fetchedUser.avatar?.startsWith("a_") || Boolean(bannerURL);
 
+    if (hasNitro && bannerURL) {
+      // add a subtle shimmer color shift to match Nitro profile feel
+      embedColor = accentColor || Colors.Blurple;
+    }
+
+    // --- Account Info ---
     const created = `<t:${Math.floor(fetchedUser.createdTimestamp / 1000)}:D> (<t:${Math.floor(fetchedUser.createdTimestamp / 1000)}:R>)`;
     const joined = member?.joinedTimestamp
       ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:D> (<t:${Math.floor(member.joinedTimestamp / 1000)}:R>)`
@@ -54,34 +77,45 @@ module.exports = {
         .slice(0, 10)
         .join(", ") || "None";
 
-    // --- Build fancy embed ---
+    // --- Build final advanced embed ---
     const embed = new EmbedBuilder()
       .setAuthor({
-        name: `${fetchedUser.tag} | General Information`,
-        iconURL: avatarURL,
+        name: `${fetchedUser.tag} | Profile Summary`,
+        iconURL: avatarURL
       })
-      .setDescription(`${userMention(fetchedUser.id)}’s profile summary`)
-      .setColor(presenceColor)
+      .setDescription(`${userMention(fetchedUser.id)}’s profile overview`)
+      .setColor(embedColor)
       .setThumbnail(avatarURL)
       .addFields(
         { name: "🆔 Identifier", value: `\`${fetchedUser.id}\``, inline: true },
         { name: "📅 Created", value: created, inline: true },
         { name: "📥 Joined Server", value: joined, inline: true },
+        { name: "🌐 Status", value: `\`${status.toUpperCase()}\``, inline: true },
+        { name: "💻 Client Type", value: clientType, inline: true },
         { name: "⭐ Booster", value: boosting, inline: true },
         { name: "🎭 Top Role", value: member?.roles.highest?.toString() || "None", inline: true },
         { name: "🎨 Roles", value: roles, inline: false },
-        { name: "🖼️ Avatar", value: `[Click to view](${avatarURL})`, inline: true },
-        { name: "🏷️ Banner", value: bannerURL ? `[Click to view](${bannerURL})` : "None", inline: true }
+        {
+          name: "🖼️ Avatar",
+          value: `[Click to view](${avatarURL})`,
+          inline: true
+        },
+        {
+          name: "🏷️ Banner",
+          value: bannerURL ? `[Click to view](${bannerURL})` : "None",
+          inline: true
+        }
       )
-      .setFooter({ text: `Requested by ${interaction.user.tag}` })
+      .setFooter({
+        text: hasNitro
+          ? `Nitro User • Requested by ${interaction.user.tag}`
+          : `Requested by ${interaction.user.tag}`
+      })
       .setTimestamp();
 
-    // Add banner visually if exists
+    // Visually show banner if user has one
     if (bannerURL) embed.setImage(bannerURL);
 
-    // If user has accent color and is offline, use it as embed color highlight
-    if (!member?.presence && accentColor) embed.setColor(accentColor);
-
     await interaction.reply({ embeds: [embed] });
-  },
+  }
 };
