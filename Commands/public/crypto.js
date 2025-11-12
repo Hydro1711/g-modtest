@@ -4,13 +4,7 @@ const fetch = require("node-fetch");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("crypto")
-    .setDescription("Get live cryptocurrency info.")
-    .addStringOption(option =>
-      option
-        .setName("coin")
-        .setDescription("Enter the coin name or symbol (e.g. BTC, ETH, DOGE).")
-        .setRequired(true)
-    )
+    .setDescription("Check cryptocurrency prices and charts.")
     .addSubcommand(sub =>
       sub
         .setName("price")
@@ -18,7 +12,7 @@ module.exports = {
         .addStringOption(o =>
           o
             .setName("coin")
-            .setDescription("Enter coin name or symbol (e.g. BTC, ETH).")
+            .setDescription("Enter the coin name or symbol (e.g. BTC, ETH, DOGE).")
             .setRequired(true)
         )
     )
@@ -29,7 +23,7 @@ module.exports = {
         .addStringOption(o =>
           o
             .setName("coin")
-            .setDescription("Enter coin name or symbol (e.g. BTC, ETH).")
+            .setDescription("Enter the coin name or symbol (e.g. BTC, ETH, DOGE).")
             .setRequired(true)
         )
     ),
@@ -38,11 +32,10 @@ module.exports = {
     await interaction.deferReply();
 
     const sub = interaction.options.getSubcommand();
-    const coinInput =
-      interaction.options.getString("coin").toLowerCase().trim();
+    const coinInput = interaction.options.getString("coin").toLowerCase().trim();
 
     try {
-      // 🔍 Get full coin list (to support symbols like btc)
+      // 🔍 Find coin
       const listRes = await fetch("https://api.coingecko.com/api/v3/coins/list");
       const list = await listRes.json();
 
@@ -53,7 +46,7 @@ module.exports = {
       if (!coin)
         return interaction.editReply("❌ Invalid coin name or symbol.");
 
-      // Fetch current data
+      // Fetch data
       const res = await fetch(
         `https://api.coingecko.com/api/v3/coins/${coin.id}?localization=false&sparkline=true`
       );
@@ -91,7 +84,6 @@ module.exports = {
           .slice(-7)
           .map(p => p.toFixed(2))
           .join(",")}],borderColor:'rgb(75,192,192)',fill:false}]}}`;
-
         embed.setImage(chartURL);
       }
 
