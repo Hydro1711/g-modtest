@@ -1,18 +1,21 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
-// Levenshtein distance
+// -----------------------------
+// Levenshtein Distance Function
+// -----------------------------
 function levenshtein(a, b) {
   const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
   for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
 
   for (let i = 1; i <= b.length; i++) {
     for (let j = 1; j <= a.length; j++) {
-      if (b[i - 1] === a[j - 1]) matrix[i][j] = matrix[i - 1][j - 1];
-      else {
+      if (b[i - 1] === a[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
         matrix[i][j] = 1 + Math.min(
-          matrix[i - 1][j - 1],
-          matrix[i][j - 1],
-          matrix[i - 1][j]
+          matrix[i - 1][j - 1], // substitution
+          matrix[i][j - 1],     // insertion
+          matrix[i - 1][j]      // deletion
         );
       }
     }
@@ -20,26 +23,40 @@ function levenshtein(a, b) {
   return matrix[b.length][a.length];
 }
 
-function stringSimilarity(a, b) {
-  if (!a || !b) return 0;
-  a = a.toLowerCase();
-  b = b.toLowerCase();
-  const dist = levenshtein(a, b);
-  const maxLen = Math.max(a.length, b.length);
-  return 1 - dist / maxLen;
+// -----------------------------
+// String Similarity (0–1 ratio)
+// -----------------------------
+function stringSimilarity(str1, str2) {
+  if (!str1 || !str2) return 0;
+
+  str1 = str1.toLowerCase();
+  str2 = str2.toLowerCase();
+
+  const distance = levenshtein(str1, str2);
+  const maxLen = Math.max(str1.length, str2.length);
+
+  return 1 - distance / maxLen;
 }
 
+// -----------------------------
+// Slash Command Definition
+// -----------------------------
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("altscanner")
-    .setDescription("Scans for possible alt accounts of the selected user.")
+    .setDescription("Scans for possible alt accounts of the selected user in this server.")
     .addUserOption(option =>
-      option.setName("user")
-        .setDescription("User to scan")
+      option
+        .setName("user")
+        .setDescription("The user to scan for alt accounts")
         .setRequired(true)
     ),
 
+  // -----------------------------
+  // Main Execution Handler
+  // -----------------------------
   async execute(interaction) {
+    // Permission check
     if (!interaction.member.permissions.has(PermissionFlagsBits.ManageRoles)) {
       return interaction.reply({
         content: "❌ You do not have permission to use this command.",
@@ -47,14 +64,20 @@ module.exports = {
       });
     }
 
+    // Fetch target user
     const targetUser = interaction.options.getUser("user");
     const targetMember = interaction.guild.members.cache.get(targetUser.id);
+
     if (!targetMember) {
-      return interaction.reply({ content: "❌ User not found in this server.", ephemeral: true });
+      return interaction.reply({
+        content: "User not found in this server.",
+        ephemeral: true
+      });
     }
 
     await interaction.deferReply();
 
+    // Target user data
     const targetCreated = targetUser.createdTimestamp;
     const targetUsername = targetUser.username;
     const targetNickname = targetMember.nickname || "";
@@ -62,102 +85,91 @@ module.exports = {
 
     const suspiciousAlts = [];
 
-    for (const [id, member] of interaction.guild.members.cache) {
-      if (id === targetUser.id) continue;
+    // -----------------------------
+    // Scan all members
+    // -----------------------------
+    interaction.guild.members.cache.forEach(member => {
+      if (member.id === targetUser.id) return;
 
       const user = member.user;
+      const createdAt = user.createdTimestamp;
+      const creationDiff = Math.abs(createdAt - targetCreated);
+
+      const usernameSim = stringSimilarity(user.username, targetUsername);
+      const nicknameSim = stringSimilarity(member.nickname || "", targetNickname);
+      const avatarMatch = user.avatar && user.avatar === targetAvatarHash;
+
+      const suspiciousPatterns = /(alt|test|fake|bot|backup|\d{4,})/i;
+      const nameSuspicious = suspiciousPatterns.test(user.username);
+
       let score = 0;
       const reasons = [];
 
-      // Skip accounts much older (reduces false positives)
-      if (user.createdTimestamp < targetCreated - 1000 * 60 * 60 * 24 * 45) continue;
-
-      const createdDiff = Math.abs(user.createdTimestamp - targetCreated);
-
-      // ---- ACCOUNT CREATION TIME ----
-      if (createdDiff < 1000 * 60 * 60 * 24 * 1) {
+      // Account creation date check
+      if (creationDiff < 1000 * 60 * 60 * 24) {
         score += 3;
-        reasons.push("Very close creation time (<24h)");
-      } else if (createdDiff < 1000 * 60 * 60 * 24 * 3) {
-        score += 2;
-        reasons.push("Close creation time (<3 days)");
-      } else if (createdDiff < 1000 * 60 * 60 * 24 * 7) {
-        score += 1;
-        reasons.push("Similar creation period (<7 days)");
+        reasons.push("Close account creation date");
       }
 
-      // Username similarity (ignore very short names)
-      if (targetUsername.length > 3 && user.username.length > 3) {
-        const sim = stringSimilarity(user.username, targetUsername);
-        if (sim > 0.85) {
-          score += 3;
-          reasons.push(`Highly similar username (${Math.round(sim * 100)}%)`);
-        } else if (sim > 0.7) {
-          score += 2;
-          reasons.push(`Similar username (${Math.round(sim * 100)}%)`);
-        }
+      // Username similarity
+      if (usernameSim > 0.7) {
+        score += 2;
+        reasons.push(`Similar username (${Math.round(usernameSim * 100)}%)`);
       }
 
       // Nickname similarity
-      if (targetNickname.length > 3 && (member.nickname || "").length > 3) {
-        const nickSim = stringSimilarity(member.nickname || "", targetNickname);
-        if (nickSim > 0.7) {
-          score += 2;
-          reasons.push(`Similar nickname (${Math.round(nickSim * 100)}%)`);
-        }
+      if (nicknameSim > 0.7) {
+        score += 2;
+        reasons.push(`Similar nickname (${Math.round(nicknameSim * 100)}%)`);
       }
 
       // Avatar match
-      if (user.avatar && user.avatar === targetAvatarHash) {
+      if (avatarMatch) {
         score += 3;
         reasons.push("Same avatar");
       }
 
-      // Suspicious pattern
-      const suspiciousPatterns = /(alt|test|fake|bot|backup|acc|account|clone|copy|throwaway|temp|new|second|\d{4,})/i;
-      if (suspiciousPatterns.test(user.username)) {
+      // Suspicious name pattern
+      if (nameSuspicious) {
         score += 2;
-        reasons.push("Suspicious username pattern");
+        reasons.push("Suspicious name pattern");
       }
 
-      // Only log strong matches
-      if (score >= 5) {
+      // If score passes threshold, flag as suspected alt
+      if (score >= 3) {
         suspiciousAlts.push({
-          tag: user.tag ?? user.username,
+          tag: user.tag,
           id: user.id,
           createdAt: `<t:${Math.floor(user.createdTimestamp / 1000)}:R>`,
           score,
           reasons: reasons.join(", ")
         });
       }
-    }
+    });
 
+    // Sort by suspicion level
     suspiciousAlts.sort((a, b) => b.score - a.score);
 
-    const MAX_RESULTS = 20;
-    const limited = suspiciousAlts.slice(0, MAX_RESULTS);
-
+    // -----------------------------
+    // Build embed
+    // -----------------------------
     const embed = new EmbedBuilder()
-      .setTitle(`🔍 Alt Scanner Results for ${targetUser.tag}`)
-      .setColor(limited.length ? 0xff0000 : 0x00cc66)
+      .setTitle(`Alt Scanner Results for ${targetUser.tag}`)
+      .setColor(suspiciousAlts.length ? "#ff0000" : "#00cc66")
       .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
+      .setDescription(
+        suspiciousAlts.length
+          ? suspiciousAlts
+              .map(alt =>
+                `• <@${alt.id}> — ${alt.tag}\n` +
+                `   ⏱ ${alt.createdAt}\n` +
+                `   ⚠️ Score: **${alt.score}** (${alt.reasons})`
+              )
+              .join("\n\n")
+          : "✅ No possible alt accounts detected."
+      )
       .setFooter({ text: `Scanned ${interaction.guild.memberCount} members.` })
       .setTimestamp();
-
-    if (limited.length) {
-      embed.setDescription(
-        limited.map(alt =>
-          `> 👤 <@${alt.id}> (**${alt.tag}**)\n` +
-          `> ⏱ Created: ${alt.createdAt}\n` +
-          `> ⚠ Score: **${alt.score}** — ${alt.reasons}`
-        ).join("\n\n") +
-        (suspiciousAlts.length > MAX_RESULTS
-          ? `\n\n… and **${suspiciousAlts.length - MAX_RESULTS} more** not shown.`
-          : "")
-      );
-    } else {
-      embed.setDescription("✅ No likely alt accounts found.");
-    }
 
     return interaction.editReply({ embeds: [embed] });
   }
