@@ -22,7 +22,8 @@ module.exports = {
         "restart",
         "serverList",
         "reload",
-        "reset_levels"
+        "reset_levels",
+        "takechips"
       ],
 
       Moderation: [
@@ -43,7 +44,6 @@ module.exports = {
         "mutedlist",
         "snipe",
         "editsnipe",
-        "takechips",
         "altscanner"
       ],
 
