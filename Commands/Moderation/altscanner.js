@@ -1,14 +1,45 @@
-const { 
-  SlashCommandBuilder, 
-  EmbedBuilder, 
-  PermissionFlagsBits, 
+const {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  PermissionFlagsBits,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ComponentType
+  ComponentType,
 } = require('discord.js');
 
-const stringSimilarity = require('string-similarity');
+// --- Simple similarity using Levenshtein distance ---
+function levenshtein(a, b) {
+  if (!a || !b) return 0;
+  a = a.toLowerCase();
+  b = b.toLowerCase();
+
+  const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b[i - 1] === a[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = 1 + Math.min(
+          matrix[i - 1][j - 1],
+          matrix[i][j - 1],
+          matrix[i - 1][j]
+        );
+      }
+    }
+  }
+
+  const distance = matrix[b.length][a.length];
+  const maxLen = Math.max(a.length, b.length);
+  return maxLen === 0 ? 0 : 1 - distance / maxLen;
+}
+
+// mimic string-similarity API you were using
+const stringSimilarity = {
+  compareTwoStrings: (a, b) => levenshtein(a, b),
+};
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,7 +50,7 @@ module.exports = {
       option
         .setName('user')
         .setDescription('The user to scan for potential alts')
-        .setRequired(true)
+        .setRequired(true),
     )
     .addNumberOption(option =>
       option
@@ -27,7 +58,7 @@ module.exports = {
         .setDescription('Similarity threshold (0.0-1.0, default 0.5)')
         .setMinValue(0.1)
         .setMaxValue(1.0)
-        .setRequired(false)
+        .setRequired(false),
     ),
 
   async execute(interaction) {
@@ -39,11 +70,15 @@ module.exports = {
       const guild = interaction.guild;
 
       if (!targetUser) {
-        return interaction.editReply({ content: '❌ Could not find that user in this server.' });
+        return interaction.editReply({
+          content: '❌ Could not find that user in this server.',
+        });
       }
 
       if (targetUser.user.bot) {
-        return interaction.editReply({ content: '❌ Cannot scan bot accounts.' });
+        return interaction.editReply({
+          content: '❌ Cannot scan bot accounts.',
+        });
       }
 
       await guild.members.fetch();
@@ -52,7 +87,12 @@ module.exports = {
       const potentialAlts = [];
 
       const targetUsername = targetUser.user.username.toLowerCase();
-      const targetDisplayName = (targetUser.nickname || targetUser.user.displayName || targetUser.user.username).toLowerCase();
+      const targetDisplayName = (
+        targetUser.nickname ||
+        targetUser.user.displayName ||
+        targetUser.user.username
+      ).toLowerCase();
+
       const targetCreatedAt = targetUser.user.createdTimestamp;
       const targetJoinedAt = targetUser.joinedTimestamp;
 
@@ -60,20 +100,34 @@ module.exports = {
         if (member.id === targetUser.id || member.user.bot) continue;
 
         const username = member.user.username.toLowerCase();
-        const displayName =
-          (member.nickname || member.user.displayName || member.user.username).toLowerCase();
+        const displayName = (
+          member.nickname ||
+          member.user.displayName ||
+          member.user.username
+        ).toLowerCase();
 
-        const unameSim = stringSimilarity.compareTwoStrings(targetUsername, username);
-        const dnameSim = stringSimilarity.compareTwoStrings(targetDisplayName, displayName);
-        const cross1 = stringSimilarity.compareTwoStrings(targetUsername, displayName);
-        const cross2 = stringSimilarity.compareTwoStrings(targetDisplayName, username);
+        const usernameSimilarity = stringSimilarity.compareTwoStrings(targetUsername, username);
+        const displayNameSimilarity = stringSimilarity.compareTwoStrings(targetDisplayName, displayName);
+        const crossSimilarity1 = stringSimilarity.compareTwoStrings(targetUsername, displayName);
+        const crossSimilarity2 = stringSimilarity.compareTwoStrings(targetDisplayName, username);
 
-        const maxSimilarity = Math.max(unameSim, dnameSim, cross1, cross2);
+        const maxSimilarity = Math.max(
+          usernameSimilarity,
+          displayNameSimilarity,
+          crossSimilarity1,
+          crossSimilarity2,
+        );
 
         if (maxSimilarity >= threshold) {
           const accountAge = Math.floor((Date.now() - member.user.createdTimestamp) / 86400000);
-          const accountAgeDiff = Math.abs(Math.floor((targetCreatedAt - member.user.createdTimestamp) / 86400000));
-          const joinDateDiff = Math.abs(Math.floor((targetJoinedAt - member.joinedTimestamp) / 86400000));
+
+          const accountAgeDiff = Math.abs(
+            Math.floor((targetCreatedAt - member.user.createdTimestamp) / 86400000),
+          );
+
+          const joinDateDiff = Math.abs(
+            Math.floor((targetJoinedAt - member.joinedTimestamp) / 86400000),
+          );
 
           const createdWithinWeek = accountAgeDiff <= 7;
           const joinedWithinWeek = joinDateDiff <= 7;
@@ -95,24 +149,30 @@ module.exports = {
             joinDateDiff,
             nameSimilarity: maxSimilarity,
             suspicionScore,
-            flags: { sameDayCreated, sameDayJoined, createdWithinWeek, joinedWithinWeek }
+            flags: {
+              sameDayCreated,
+              sameDayJoined,
+              createdWithinWeek,
+              joinedWithinWeek,
+            },
           });
         }
       }
 
       if (potentialAlts.length === 0) {
         return interaction.editReply({
-          content: `✅ No potential alt accounts found for **${targetUser.user.tag}** with ${(threshold * 100).toFixed(0)}% similarity threshold.`
+          content: `✅ No potential alt accounts found for **${targetUser.user.tag}** with ${(threshold * 100).toFixed(0)}% similarity threshold.`,
         });
       }
 
       potentialAlts.sort((a, b) => b.suspicionScore - a.suspicionScore);
 
       const maxPerPage = 5;
-      const pages = [];
       const totalPages = Math.ceil(potentialAlts.length / maxPerPage);
 
-      function generatePage(pageIndex) {
+      const targetAccountAge = Math.floor((Date.now() - targetCreatedAt) / 86400000);
+
+      const makePageEmbed = (pageIndex) => {
         const start = pageIndex * maxPerPage;
         const batch = potentialAlts.slice(start, start + maxPerPage);
 
@@ -122,17 +182,18 @@ module.exports = {
           .setDescription(
             `Scanning **${targetUser.user.tag}**\n` +
             `Found **${potentialAlts.length}** potential alt account(s)\n` +
-            `Threshold: ${(threshold * 100).toFixed(0)}%`
+            `Threshold: ${(threshold * 100).toFixed(0)}%`,
           )
           .setThumbnail(targetUser.user.displayAvatarURL({ dynamic: true }))
           .setTimestamp()
           .setFooter({
-            text: `Page ${pageIndex + 1}/${totalPages} | Scanned ${members.length} members`
+            text: `Page ${pageIndex + 1}/${totalPages} | Scanned ${members.length} members`,
           });
 
-        batch.forEach((alt, idx) => {
-          const index = start + idx + 1;
-          const flags = alt.flags;
+        // Add matches
+        batch.forEach((alt, index) => {
+          const globalIndex = start + index + 1;
+          const { member, accountAge, accountAgeDiff, joinDateDiff, nameSimilarity, suspicionScore, flags } = alt;
 
           const warningFlags = [];
           if (flags.sameDayCreated) warningFlags.push('🔴 Same day created');
@@ -141,90 +202,109 @@ module.exports = {
           if (flags.joinedWithinWeek && !flags.sameDayJoined) warningFlags.push('🟡 Joined within 7 days');
 
           const suspicionEmoji =
-            alt.suspicionScore >= 80 ? '🔴' :
-            alt.suspicionScore >= 60 ? '🟠' :
+            suspicionScore >= 80 ? '🔴' :
+            suspicionScore >= 60 ? '🟠' :
             '🟡';
 
+          const fieldValue = [
+            `**Username:** ${member.user.tag}`,
+            `**Display Name:** ${member.displayName}`,
+            `**Name Similarity:** ${(nameSimilarity * 100).toFixed(1)}%`,
+            `**Suspicion Score:** ${suspicionScore.toFixed(1)}%`,
+            `**Account Age:** ${accountAge} days`,
+            `**Created:** <t:${Math.floor(member.user.createdTimestamp / 1000)}:D> (${accountAgeDiff}d difference)`,
+            `**Joined Server:** <t:${Math.floor(member.joinedTimestamp / 1000)}:D> (${joinDateDiff}d difference)`,
+            warningFlags.length > 0 ? `\n${warningFlags.join('\n')}` : '',
+          ].join('\n');
+
           embed.addFields({
-            name: `${suspicionEmoji} Match #${index} — ${alt.suspicionScore.toFixed(0)}% Suspicion`,
-            value: [
-              `**Username:** ${alt.member.user.tag}`,
-              `**Display Name:** ${alt.member.displayName}`,
-              `**Name Similarity:** ${(alt.nameSimilarity * 100).toFixed(1)}%`,
-              `**Suspicion Score:** ${alt.suspicionScore.toFixed(1)}%`,
-              `**Account Age:** ${alt.accountAge} days`,
-              `**Created:** <t:${Math.floor(alt.member.user.createdTimestamp / 1000)}:D> (${alt.accountAgeDiff}d diff)`,
-              `**Joined Server:** <t:${Math.floor(alt.member.joinedTimestamp / 1000)}:D> (${alt.joinDateDiff}d diff)`,
-              warningFlags.length ? `\n${warningFlags.join('\n')}` : ''
-            ].join('\n')
+            name: `${suspicionEmoji} Match #${globalIndex} - ${suspicionScore.toFixed(0)}% Suspicion`,
+            value: fieldValue,
+            inline: false,
           });
         });
 
+        // Only on first page: target info
         if (pageIndex === 0) {
           embed.addFields({
             name: '📋 Target Information',
             value: [
               `**Target User:** ${targetUser.user.tag}`,
-              `**Target Account Age:** ${Math.floor((Date.now() - targetCreatedAt) / 86400000)} days`,
+              `**Target Account Age:** ${targetAccountAge} days`,
               `**Target Created:** <t:${Math.floor(targetCreatedAt / 1000)}:D>`,
-              `**Target Joined:** <t:${Math.floor(targetJoinedAt / 1000)}:D>`
+              `**Target Joined:** <t:${Math.floor(targetJoinedAt / 1000)}:D>`,
             ].join('\n'),
-            inline: false
+            inline: false,
           });
         }
 
         return embed;
-      }
+      };
 
-      for (let i = 0; i < totalPages; i++) {
-        pages.push(generatePage(i));
-      }
-
-      if (pages.length === 1) {
-        return interaction.editReply({ embeds: pages });
+      // If only one page, no buttons needed
+      if (totalPages === 1) {
+        const embed = makePageEmbed(0);
+        return interaction.editReply({ embeds: [embed] });
       }
 
       let currentPage = 0;
 
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('prev').setLabel('◀️').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('next').setLabel('▶️').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder()
+          .setCustomId('altscanner_prev')
+          .setLabel('◀️')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId('altscanner_next')
+          .setLabel('▶️')
+          .setStyle(ButtonStyle.Secondary),
       );
 
-      const response = await interaction.editReply({
-        embeds: [pages[currentPage]],
-        components: [row]
+      const message = await interaction.editReply({
+        embeds: [makePageEmbed(currentPage)],
+        components: [row],
       });
 
-      const collector = response.createMessageComponentCollector({
+      const collector = message.createMessageComponentCollector({
         componentType: ComponentType.Button,
-        time: 1000 * 60 * 3
+        time: 1000 * 60 * 3, // 3 minutes
       });
 
-      collector.on('collect', (btn) => {
+      collector.on('collect', async (btn) => {
         if (btn.user.id !== interaction.user.id) {
           return btn.reply({ content: '❌ These buttons are not for you.', ephemeral: true });
         }
 
-        if (btn.customId === 'prev') {
+        if (btn.customId === 'altscanner_prev') {
           currentPage = (currentPage - 1 + totalPages) % totalPages;
-        } else if (btn.customId === 'next') {
+        } else if (btn.customId === 'altscanner_next') {
           currentPage = (currentPage + 1) % totalPages;
         }
 
-        btn.update({
-          embeds: [pages[currentPage]],
-          components: [row]
+        await btn.update({
+          embeds: [makePageEmbed(currentPage)],
+          components: [row],
         });
       });
 
       collector.on('end', () => {
-        response.edit({ components: [] }).catch(() => {});
+        message.edit({ components: [] }).catch(() => {});
       });
 
-    } catch (err) {
-      console.error(err);
-      interaction.editReply({ content: '❌ An error occurred while scanning for alt accounts.' });
+    } catch (error) {
+      console.error('Error in altScanner command:', error);
+
+      // avoid "already acknowledged" error
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({
+          content: '❌ An error occurred while scanning for alt accounts. Please try again.',
+        }).catch(() => {});
+      } else {
+        await interaction.reply({
+          content: '❌ An error occurred while scanning for alt accounts. Please try again.',
+          ephemeral: true,
+        }).catch(() => {});
+      }
     }
-  }
+  },
 };
