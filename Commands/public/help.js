@@ -14,38 +14,43 @@ module.exports = {
   async execute(interaction) {
     const client = interaction.client;
 
+    // ✔ FIXED: All categories corrected to match REAL command names
     const categories = {
-      Home: [], // homepage category (no commands, shows intro)
+      Home: [],
 
       Developer: [
         "createlink",
-        "leaveServer",
+        "leaveserver",
         "restart",
-        "serverList",
+        "server-list",
         "reload",
-        "reset_levels"
+        "reset_levels",
+        "resetallchips"
       ],
+
       Moderation: [
-        "adminRole",
+        "admin-role",
         "ban",
         "kick",
         "nickname",
         "purge",
         "say",
-        "setupModLogs",
+        "setup_modlogs",
         "timeout",
         "togglelevels",
         "voicemaster",
         "warn",
         "mute",
         "unmute",
-        "setupMuteRole",
+        "setup_mute_role",
         "mutedlist",
         "snipe",
         "editsnipe",
         "takechips",
-        "altscanner"
+        "altscanner",
+        "setup_casino_channel"
       ],
+
       Fun: [
         "8ball",
         "meme",
@@ -57,6 +62,7 @@ module.exports = {
         "smoke",
         "minigame"
       ],
+
       Economy: [
         "wallet",
         "slot",
@@ -67,6 +73,7 @@ module.exports = {
         "resetallchips",
         "setup_casino_channel"
       ],
+
       Public: [
         "ping",
         "userinfo",
@@ -82,6 +89,7 @@ module.exports = {
       ]
     };
 
+    // dropdown category options
     const options = Object.keys(categories).map((cat) => ({
       label: cat,
       description: `View ${cat} commands`,
@@ -95,7 +103,7 @@ module.exports = {
 
     const row = new ActionRowBuilder().addComponents(menu);
 
-    // --- HOMEPAGE EMBED ---
+    // HOME EMBED
     const homeEmbed = new EmbedBuilder()
       .setAuthor({
         name: `${client.user.username} Help Center`,
@@ -104,35 +112,32 @@ module.exports = {
       .setDescription(
         [
           "### 👋 Welcome to the Help Menu!",
-          "Browse all available commands, neatly organized by category.",
+          "Browse all available commands by choosing a category below.",
           "",
           "📁 **Categories:**",
           "• Developer — Owner-only tools",
           "• Moderation — Server management commands",
           "• Fun — Entertainment & roleplay",
-          "• Economy — Casino & money system",
+          "• Economy — Casino & chip system",
           "• Public — General utilities & info",
           "",
           "Use the **dropdown below** to switch categories.",
           "",
-          `> 👑 Developer: ${client.application?.owner?.tag || "Hydro.17"}`
+          `> 👑 Developer: ${client.application?.owner?.tag || "Developer"}`
         ].join("\n")
       )
       .setThumbnail(client.user.displayAvatarURL({ size: 512 }))
       .setColor("#3b82f6")
-      .setFooter({
-        text: "Use /help anytime to reopen this menu.",
-      })
+      .setFooter({ text: "Use /help anytime to reopen this menu." })
       .setTimestamp();
 
-    // SEND STARTING PAGE (Home)
+    // send initial menu
     const msg = await interaction.reply({
       embeds: [homeEmbed],
       components: [row],
-      ephemeral: false,
     });
 
-    // Collector for dropdown
+    // collector
     const collector = msg.createMessageComponentCollector({
       componentType: ComponentType.StringSelect,
       time: 120000,
@@ -142,27 +147,27 @@ module.exports = {
       if (i.user.id !== interaction.user.id)
         return i.reply({ content: "❌ Not your menu.", ephemeral: true });
 
-      await i.deferUpdate();
-
       const cat = i.values[0];
 
-      // If "Home" selected → show homepage again
+      // HOME PAGE
       if (cat === "Home") {
-        await msg.edit({
+        await i.update({
           embeds: [homeEmbed],
           components: [row],
         });
         return;
       }
 
-      const cmds = categories[cat] || [];
+      const cmds = categories[cat];
 
+      // FIXED: No errors if command missing
       const desc = cmds
-        .map((name) => {
-          const cmd = client.commands.get(name);
-          const cleanDesc = (cmd?.data?.description || "No description available.")
-            .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "");
-          return `• **/${cmd?.data?.name || name}** — ${cleanDesc}`;
+        .map((cmdName) => {
+          const cmd = client.commands.get(cmdName);
+          const description =
+            cmd?.data?.description || "No description available.";
+
+          return `• **/${cmdName}** — ${description}`;
         })
         .join("\n") || "*No commands in this category.*";
 
@@ -173,25 +178,18 @@ module.exports = {
         })
         .setDescription(desc)
         .setColor("#3b82f6")
-        .setFooter({
-          text: "Select another category from the menu.",
-        });
+        .setFooter({ text: "Select another category from the dropdown." });
 
-      await msg.edit({
+      await i.update({
         embeds: [embed],
-        components: [row],
       });
     });
 
-    // Disable after timeout
     collector.on("end", async () => {
-      const disabled = new ActionRowBuilder().addComponents(
+      const disabledRow = new ActionRowBuilder().addComponents(
         StringSelectMenuBuilder.from(menu).setDisabled(true)
       );
-
-      await msg.edit({
-        components: [disabled],
-      }).catch(() => {});
+      await msg.edit({ components: [disabledRow] }).catch(() => {});
     });
   },
 };
