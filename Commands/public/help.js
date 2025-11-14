@@ -14,13 +14,15 @@ module.exports = {
   async execute(interaction) {
     const client = interaction.client;
 
-    // --- Command categories ---
+    // --- FINAL COMMAND LIST (cleaned + updated + camelCase kept) ---
     const categories = {
       Developer: [
         "createlink",
         "leaveServer",
         "restart",
         "serverList",
+        "reload",
+        "reset_levels"
       ],
 
       Moderation: [
@@ -41,19 +43,31 @@ module.exports = {
         "mutedlist",
         "snipe",
         "editsnipe",
+        "takechips",
+        "altscanner"
       ],
 
       Fun: [
         "8ball",
-        "roll",
         "meme",
         "quote",
-        "cat",
         "ship",
         "hug",
         "slap",
         "kiss",
         "smoke",
+        "minigame"
+      ],
+
+      Economy: [
+        "wallet",
+        "slot",
+        "roulette",
+        "mines",
+        "claim",
+        "give",
+        "resetallchips",
+        "setup_casino_channel"
       ],
 
       Public: [
@@ -64,11 +78,11 @@ module.exports = {
         "botinfo",
         "invite",
         "afk",
-        "balance",
         "crypto",
         "spotify",
         "tts",
-      ],
+        "help"
+      ]
     };
 
     // Dropdown options
@@ -85,7 +99,7 @@ module.exports = {
 
     const row = new ActionRowBuilder().addComponents(menu);
 
-    // --- Refined homepage embed ---
+    // --- Homepage embed ---
     const introEmbed = new EmbedBuilder()
       .setAuthor({
         name: `${client.user.username} Help Center`,
@@ -94,15 +108,16 @@ module.exports = {
       .setDescription(
         [
           "### 👋 Welcome to the Help Menu!",
-          "Easily browse through all available commands, neatly organized by category.",
+          "Browse all available commands, neatly organized by category.",
           "",
           "📁 **Categories:**",
-          "• Developer — Owner-only utilities & control tools.",
-          "• Moderation — Manage your server & users.",
-          "• Fun — Roleplay, memes, and entertainment.",
-          "• Public — General info, utilities, and tools.",
+          "• Developer — Owner-only tools.",
+          "• Moderation — Server management commands.",
+          "• Fun — Entertainment & roleplay.",
+          "• Economy — Casino & currency.",
+          "• Public — General utilities & info.",
           "",
-          "Use the **dropdown below** to select a category.",
+          "Use the **dropdown below** to view commands.",
           "",
           `> 👑 Developer: ${client.application?.owner?.tag || "Hydro.17"}`
         ].join("\n")
@@ -159,7 +174,7 @@ module.exports = {
       await i.update({ embeds: [embed], components: [row] });
     });
 
-    // --- Disable menu after 2 minutes ---
+    // --- Disable menu after timeout ---
     collector.on("end", async () => {
       const disabled = new ActionRowBuilder().addComponents(
         StringSelectMenuBuilder.from(menu).setDisabled(true)
