@@ -14,7 +14,6 @@ module.exports = {
   async execute(interaction) {
     const client = interaction.client;
 
-    // ✔ CLEAN — No emojis in descriptions
     const categories = {
       Home: [],
 
@@ -72,8 +71,6 @@ module.exports = {
         "give",
         "resetallchips",
         "setup_casino_channel",
-
-        // ⭐ NEW COMMANDS ADDED
         "weekly",
         "work",
         "beg",
@@ -104,12 +101,12 @@ module.exports = {
 
     const menu = new StringSelectMenuBuilder()
       .setCustomId("help-menu")
-      .setPlaceholder("Select a category")
+      .setPlaceholder("📂 Select a category")
       .addOptions(options);
 
     const row = new ActionRowBuilder().addComponents(menu);
 
-    // HOME PAGE
+    // homepage UI stays with emojis
     const homeEmbed = new EmbedBuilder()
       .setAuthor({
         name: `${client.user.username} Help Center`,
@@ -117,19 +114,19 @@ module.exports = {
       })
       .setDescription(
         [
-          "Welcome to the Help Menu!",
-          "Browse all available commands by choosing a category.",
+          "### 👋 Welcome to the Help Menu!",
+          "Browse all available commands by choosing a category below.",
           "",
-          "Categories:",
-          "- Developer — Owner-only tools",
-          "- Moderation — Server management commands",
-          "- Fun — Entertainment & roleplay",
-          "- Economy — Casino & chip system",
-          "- Public — General utilities & info",
+          "📁 **Categories:**",
+          "• Developer — Owner-only tools",
+          "• Moderation — Server management commands",
+          "• Fun — Entertainment & roleplay",
+          "• Economy — Casino & chip system",
+          "• Public — General utilities & info",
           "",
-          "Use the dropdown below to switch categories.",
+          "Use the **dropdown below** to switch categories.",
           "",
-          `Developer: ${client.application?.owner?.tag || "Developer"}`
+          `> 👑 Developer: ${client.application?.owner?.tag || "Developer"}`
         ].join("\n")
       )
       .setThumbnail(client.user.displayAvatarURL({ size: 512 }))
@@ -149,34 +146,27 @@ module.exports = {
 
     collector.on("collect", async (i) => {
       if (i.user.id !== interaction.user.id)
-        return i.reply({ content: "Not your menu.", ephemeral: true });
+        return i.reply({ content: "❌ Not your menu.", ephemeral: true });
 
       const cat = i.values[0];
 
       if (cat === "Home") {
-        await i.update({
-          embeds: [homeEmbed],
-          components: [row],
-        });
+        await i.update({ embeds: [homeEmbed], components: [row] });
         return;
       }
 
       const cmds = categories[cat];
 
-      // ✔ REMOVED ALL EMOJIS FROM DESCRIPTIONS
+      // remove emojis from descriptions ONLY
       const desc = cmds
         .map((cmdName) => {
           const cmd = client.commands.get(cmdName);
-          let description = cmd?.data?.description || "No description available.";
+          const cleanDesc = (cmd?.data?.description || "No description available.")
+            .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "");
 
-          description = description.replace(
-            /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu,
-            ""
-          );
-
-          return `• /${cmdName} — ${description}`;
+          return `• **/${cmdName}** — ${cleanDesc}`;
         })
-        .join("\n") || "No commands in this category.";
+        .join("\n") || "*No commands in this category.*";
 
       const embed = new EmbedBuilder()
         .setAuthor({
@@ -191,11 +181,10 @@ module.exports = {
     });
 
     collector.on("end", async () => {
-      const disabledRow = new ActionRowBuilder().addComponents(
+      const disabled = new ActionRowBuilder().addComponents(
         StringSelectMenuBuilder.from(menu).setDisabled(true)
       );
-
-      await msg.edit({ components: [disabledRow] }).catch(() => {});
+      await msg.edit({ components: [disabled] }).catch(() => {});
     });
   },
 };
