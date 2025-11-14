@@ -5,47 +5,76 @@ module.exports = {
       if (!interaction.inGuild()) return;
 
       const commandData = {
-        moderation: [
-          ['/altscanner', '-# Scan a user’s account to check if it might be an alt.'],
-          ['/ban', '-# Permanently ban a member from the server.'],
-          ['/clear', '-# Delete a number of messages from a channel (max 100).'],
-          ['/dm_member', '-# Send a direct message to a user as the bot.'],
-          ['/give', '-# Add chips to a user’s account.'],
-          ['/kick', '-# Remove a member from the server.'],
-          ['/mute', '-# Permanently mute a member.'],
-          ['/purge', '-# Delete all messages from a user from the last 24 hours.'],
-          ['/rename', '-# Change the bot’s nickname.'],
-          ['/say', '-# Make the bot say a message in this channel.'],
-          ['/setclearedlog_channel', '-# Log where cleared messages will be posted.'],
-          ['/setup_casino_channel', '-# Set the channel where casino games can be used.'],
-          ['/setup_memberlog', '-# Set the channel that shows join/leave logs.'],
-          ['/setup_modlogs', '-# Set the channel for moderation action logs.'],
-          ['/setup_mute_role', '-# Assign the mute role to use for mutes.'],
-          ['/setup_verify_channel', '-# Set the verification channel.'],
-          ['/setup_verification_role', '-# Choose the verification role.'],
-          ['/takechips', '-# Remove chips from a user.'],
-          ['/timeout', '-# Temporarily timeout a user.'],
-          ['/unmute', '-# Remove permanent mute from a user.'],
-        ],
-        public: [
-          ['/afk', '-# Set your AFK status. The bot will reply when someone mentions you.'],
-          ['/contact', '-# Send a message to the bot owner.'],
-          ['/help', '-# Open the interactive help menu.'],
-          ['/memberinfo', '-# (Outdated) Show info about a member.'],
-          ['/mc-info', '-# Check if a Minecraft server is online.'],
-          ['/qr', '-# Generate a QR code from any text or URL.'],
-        ],
-        fun: [
-          ['/ascii', '-# Turn text into fun ASCII art.'],
-          ['/ping', '-# Show the bot’s latency.'],
-          ['/whatifyelled', '-# Simulate yelling a message at night.'],
-        ],
-        casino: [
-          ['/roulette', '-# Bet chips in roulette. Try red, black, or numbers!'],
-          ['/slot', '-# Spin a slot machine for a chance to win chips.'],
-          ['/mines', '-# Play a minefield game: pick safe tiles, avoid mines.'],
-        ],
-      };
+  moderation: [
+    ['/altscanner', '-# Scan a user’s account to check if it might be an alt.'],
+    ['/ban', '-# Permanently ban a member from the server.'],
+    ['/kick', '-# Remove a member from the server.'],
+    ['/nickname', '-# Change a user’s nickname.'],
+    ['/purge', '-# Delete a number of messages.'],
+    ['/say', '-# Make the bot say something.'],
+    ['/setup_modlogs', '-# Set the moderation logs channel.'],
+    ['/timeout', '-# Timeout a user.'],
+    ['/togglelevels', '-# Enable or disable leveling system.'],
+    ['/voicemaster', '-# Create/manage voice channels.'],
+    ['/warn', '-# Warn a user.'],
+    ['/mute', '-# Mute a member.'],
+    ['/unmute', '-# Unmute a member.'],
+    ['/setup_mute_role', '-# Set the mute role.'],
+    ['/mutedlist', '-# Show muted users.'],
+    ['/snipe', '-# View last deleted message.'],
+    ['/editsnipe', '-# View last edited message.'],
+    ['/admin-role', '-# Set the admin role.'],
+    ['/setup_casino_channel', '-# Set the casino channel.']
+  ],
+
+  public: [
+    ['/ping', '-# Show latency.'],
+    ['/userinfo', '-# Show user info.'],
+    ['/serverinfo', '-# Show server info.'],
+    ['/avatar', '-# Show avatar of a user.'],
+    ['/botinfo', '-# Show bot info.'],
+    ['/invite', '-# Bot invite link.'],
+    ['/afk', '-# Set an AFK message.'],
+    ['/crypto', '-# Track crypto data.'],
+    ['/spotify', '-# Show Spotify track info.'],
+    ['/tts', '-# Convert text to speech.'],
+    ['/help', '-# Display the help menu.']
+  ],
+
+  fun: [
+    ['/8ball', '-# Ask the magic 8-ball.'],
+    ['/meme', '-# Random meme.'],
+    ['/quote', '-# Random quote.'],
+    ['/ship', '-# Ship two people.'],
+    ['/hug', '-# Hug someone.'],
+    ['/slap', '-# Slap someone.'],
+    ['/kiss', '-# Kiss someone.'],
+    ['/smoke', '-# Smoke command.'],
+    ['/minigame', '-# Play a small minigame.']
+  ],
+
+  economy: [
+    ['/wallet', '-# Check your chips.'],
+    ['/slot', '-# Play slots.'],
+    ['/roulette', '-# Roulette casino game.'],
+    ['/mines', '-# Mines casino game.'],
+    ['/claim', '-# Claim daily chips.'],
+    ['/give', '-# Give chips to a user.'],
+    ['/resetallchips', '-# Reset everyone’s chips.'],
+    ['/setup_casino_channel', '-# Set the casino channel.']
+  ],
+
+  developer: [
+    ['/createlink', '-# Create a bot invite link.'],
+    ['/takechips', '-# Remove chips from a user.'],
+    ['/leaveserver', '-# Make the bot leave a server.'],
+    ['/restart', '-# Restart the bot.'],
+    ['/server-list', '-# Show servers bot is in.'],
+    ['/reload', '-# Reload a command.'],
+    ['/reset_levels', '-# Reset levels.']
+  ]
+};
+
 
       if (interaction.isStringSelectMenu() && interaction.customId === 'help-category') {
         const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
@@ -246,3 +275,4 @@ module.exports = {
     }
   },
 };
+
