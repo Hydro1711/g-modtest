@@ -150,6 +150,8 @@ module.exports = {
       if (i.user.id !== interaction.user.id)
         return i.reply({ content: "❌ Not your menu.", ephemeral: true });
 
+      await i.deferUpdate();
+
       const cat = i.values[0];
       const cmds = categories[cat] || [];
 
@@ -173,19 +175,26 @@ module.exports = {
           text: "Select another category or return to homepage.",
         });
 
-      await i.update({ embeds: [embed], components: [row, homeRow] });
+      await msg.edit({ embeds: [embed], components: [row, homeRow] }).catch(() => {});
     });
 
     buttonCollector.on("collect", async (i) => {
+      if (i.user.id !== interaction.user.id)
+        return i.reply({ content: "❌ Not your menu.", ephemeral: true });
+
       if (i.customId !== "help-home") return;
 
-      await i.update({
+      await i.deferUpdate();
+
+      await msg.edit({
         embeds: [introEmbed],
         components: [row],
-      });
+      }).catch(() => {});
     });
 
     collector.on("end", async () => {
+      buttonCollector.stop();
+
       const disabledRow = new ActionRowBuilder().addComponents(
         StringSelectMenuBuilder.from(menu).setDisabled(true)
       );
