@@ -3,8 +3,6 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   ComponentType,
 } = require("discord.js");
 
@@ -17,6 +15,8 @@ module.exports = {
     const client = interaction.client;
 
     const categories = {
+      Home: [], // homepage category (no commands, shows intro)
+
       Developer: [
         "createlink",
         "leaveServer",
@@ -84,24 +84,19 @@ module.exports = {
 
     const options = Object.keys(categories).map((cat) => ({
       label: cat,
-      description: `View ${cat} commands.`,
+      description: `View ${cat} commands`,
       value: cat,
     }));
 
     const menu = new StringSelectMenuBuilder()
       .setCustomId("help-menu")
-      .setPlaceholder("📂 Select a category to view commands")
+      .setPlaceholder("📂 Select a category")
       .addOptions(options);
 
-    const homeBtn = new ButtonBuilder()
-      .setCustomId("help-home")
-      .setStyle(ButtonStyle.Primary)
-      .setLabel("🏠 Homepage");
-
     const row = new ActionRowBuilder().addComponents(menu);
-    const homeRow = new ActionRowBuilder().addComponents(homeBtn);
 
-    const introEmbed = new EmbedBuilder()
+    // --- HOMEPAGE EMBED ---
+    const homeEmbed = new EmbedBuilder()
       .setAuthor({
         name: `${client.user.username} Help Center`,
         iconURL: client.user.displayAvatarURL({ size: 256 }),
@@ -118,7 +113,7 @@ module.exports = {
           "• Economy — Casino & money system",
           "• Public — General utilities & info",
           "",
-          "Use the **dropdown below** to view commands.",
+          "Use the **dropdown below** to switch categories.",
           "",
           `> 👑 Developer: ${client.application?.owner?.tag || "Hydro.17"}`
         ].join("\n")
@@ -130,19 +125,16 @@ module.exports = {
       })
       .setTimestamp();
 
+    // SEND STARTING PAGE (Home)
     const msg = await interaction.reply({
-      embeds: [introEmbed],
+      embeds: [homeEmbed],
       components: [row],
       ephemeral: false,
     });
 
+    // Collector for dropdown
     const collector = msg.createMessageComponentCollector({
       componentType: ComponentType.StringSelect,
-      time: 120000,
-    });
-
-    const buttonCollector = msg.createMessageComponentCollector({
-      componentType: ComponentType.Button,
       time: 120000,
     });
 
@@ -153,16 +145,26 @@ module.exports = {
       await i.deferUpdate();
 
       const cat = i.values[0];
+
+      // If "Home" selected → show homepage again
+      if (cat === "Home") {
+        await msg.edit({
+          embeds: [homeEmbed],
+          components: [row],
+        });
+        return;
+      }
+
       const cmds = categories[cat] || [];
 
       const desc = cmds
         .map((name) => {
           const cmd = client.commands.get(name);
-          const description = (cmd?.data?.description || "No description available.")
+          const cleanDesc = (cmd?.data?.description || "No description available.")
             .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "");
-          return `• **/${cmd?.data?.name || name}** — ${description}`;
+          return `• **/${cmd?.data?.name || name}** — ${cleanDesc}`;
         })
-        .join("\n");
+        .join("\n") || "*No commands in this category.*";
 
       const embed = new EmbedBuilder()
         .setAuthor({
@@ -172,39 +174,23 @@ module.exports = {
         .setDescription(desc)
         .setColor("#3b82f6")
         .setFooter({
-          text: "Select another category or return to homepage.",
+          text: "Select another category from the menu.",
         });
 
-      await msg.edit({ embeds: [embed], components: [row, homeRow] }).catch(() => {});
-    });
-
-    buttonCollector.on("collect", async (i) => {
-      if (i.user.id !== interaction.user.id)
-        return i.reply({ content: "❌ Not your menu.", ephemeral: true });
-
-      if (i.customId !== "help-home") return;
-
-      await i.deferUpdate();
-
       await msg.edit({
-        embeds: [introEmbed],
+        embeds: [embed],
         components: [row],
-      }).catch(() => {});
+      });
     });
 
+    // Disable after timeout
     collector.on("end", async () => {
-      buttonCollector.stop();
-
-      const disabledRow = new ActionRowBuilder().addComponents(
+      const disabled = new ActionRowBuilder().addComponents(
         StringSelectMenuBuilder.from(menu).setDisabled(true)
       );
 
-      const disabledHome = new ActionRowBuilder().addComponents(
-        ButtonBuilder.from(homeBtn).setDisabled(true)
-      );
-
       await msg.edit({
-        components: [disabledRow, disabledHome],
+        components: [disabled],
       }).catch(() => {});
     });
   },
