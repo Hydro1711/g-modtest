@@ -3,6 +3,8 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   ComponentType,
 } = require("discord.js");
 
@@ -14,7 +16,6 @@ module.exports = {
   async execute(interaction) {
     const client = interaction.client;
 
-    // --- FINAL COMMAND LIST (cleaned + updated + camelCase kept) ---
     const categories = {
       Developer: [
         "createlink",
@@ -22,10 +23,8 @@ module.exports = {
         "restart",
         "serverList",
         "reload",
-        "reset_levels",
-        "takechips"
+        "reset_levels"
       ],
-
       Moderation: [
         "adminRole",
         "ban",
@@ -44,9 +43,9 @@ module.exports = {
         "mutedlist",
         "snipe",
         "editsnipe",
+        "takechips",
         "altscanner"
       ],
-
       Fun: [
         "8ball",
         "meme",
@@ -58,7 +57,6 @@ module.exports = {
         "smoke",
         "minigame"
       ],
-
       Economy: [
         "wallet",
         "slot",
@@ -69,7 +67,6 @@ module.exports = {
         "resetallchips",
         "setup_casino_channel"
       ],
-
       Public: [
         "ping",
         "userinfo",
@@ -85,7 +82,6 @@ module.exports = {
       ]
     };
 
-    // Dropdown options
     const options = Object.keys(categories).map((cat) => ({
       label: cat,
       description: `View ${cat} commands.`,
@@ -97,9 +93,14 @@ module.exports = {
       .setPlaceholder("📂 Select a category to view commands")
       .addOptions(options);
 
-    const row = new ActionRowBuilder().addComponents(menu);
+    const homeBtn = new ButtonBuilder()
+      .setCustomId("help-home")
+      .setStyle(ButtonStyle.Primary)
+      .setLabel("🏠 Homepage");
 
-    // --- Homepage embed ---
+    const row = new ActionRowBuilder().addComponents(menu);
+    const homeRow = new ActionRowBuilder().addComponents(homeBtn);
+
     const introEmbed = new EmbedBuilder()
       .setAuthor({
         name: `${client.user.username} Help Center`,
@@ -111,11 +112,11 @@ module.exports = {
           "Browse all available commands, neatly organized by category.",
           "",
           "📁 **Categories:**",
-          "• Developer — Owner-only tools.",
-          "• Moderation — Server management commands.",
-          "• Fun — Entertainment & roleplay.",
-          "• Economy — Casino & currency.",
-          "• Public — General utilities & info.",
+          "• Developer — Owner-only tools",
+          "• Moderation — Server management commands",
+          "• Fun — Entertainment & roleplay",
+          "• Economy — Casino & money system",
+          "• Public — General utilities & info",
           "",
           "Use the **dropdown below** to view commands.",
           "",
@@ -129,26 +130,25 @@ module.exports = {
       })
       .setTimestamp();
 
-    // Send main embed
     const msg = await interaction.reply({
       embeds: [introEmbed],
       components: [row],
       ephemeral: false,
     });
 
-    // --- Dropdown collector ---
     const collector = msg.createMessageComponentCollector({
       componentType: ComponentType.StringSelect,
       time: 120000,
     });
 
+    const buttonCollector = msg.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      time: 120000,
+    });
+
     collector.on("collect", async (i) => {
-      if (i.user.id !== interaction.user.id) {
-        return i.reply({
-          content: "❌ You cannot use this menu.",
-          ephemeral: true,
-        });
-      }
+      if (i.user.id !== interaction.user.id)
+        return i.reply({ content: "❌ Not your menu.", ephemeral: true });
 
       const cat = i.values[0];
       const cmds = categories[cat] || [];
@@ -156,7 +156,9 @@ module.exports = {
       const desc = cmds
         .map((name) => {
           const cmd = client.commands.get(name);
-          return `• **/${cmd?.data?.name || name}** — ${cmd?.data?.description || "No description available."}`;
+          const description = (cmd?.data?.description || "No description available.")
+            .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "");
+          return `• **/${cmd?.data?.name || name}** — ${description}`;
         })
         .join("\n");
 
@@ -165,21 +167,36 @@ module.exports = {
           name: `${cat} Commands`,
           iconURL: client.user.displayAvatarURL({ size: 256 }),
         })
-        .setDescription(desc || "No commands found in this category.")
+        .setDescription(desc)
         .setColor("#3b82f6")
         .setFooter({
-          text: "Select another category to view more commands.",
+          text: "Select another category or return to homepage.",
         });
 
-      await i.update({ embeds: [embed], components: [row] });
+      await i.update({ embeds: [embed], components: [row, homeRow] });
     });
 
-    // --- Disable menu after timeout ---
+    buttonCollector.on("collect", async (i) => {
+      if (i.customId !== "help-home") return;
+
+      await i.update({
+        embeds: [introEmbed],
+        components: [row],
+      });
+    });
+
     collector.on("end", async () => {
-      const disabled = new ActionRowBuilder().addComponents(
+      const disabledRow = new ActionRowBuilder().addComponents(
         StringSelectMenuBuilder.from(menu).setDisabled(true)
       );
-      await msg.edit({ components: [disabled] }).catch(() => {});
+
+      const disabledHome = new ActionRowBuilder().addComponents(
+        ButtonBuilder.from(homeBtn).setDisabled(true)
+      );
+
+      await msg.edit({
+        components: [disabledRow, disabledHome],
+      }).catch(() => {});
     });
   },
 };
