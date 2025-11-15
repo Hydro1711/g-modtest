@@ -1,4 +1,3 @@
-
 const {
   SlashCommandBuilder,
   EmbedBuilder,
@@ -7,7 +6,9 @@ const {
   ButtonStyle,
   ComponentType,
 } = require("discord.js");
-const { ClassicPro } = require("musicard");
+
+// ❗ Correct import
+const { ClassicPro } = require("musicard-mseries"); 
 
 // helper to format ms -> m:ss
 function formatTime(ms) {
@@ -24,6 +25,7 @@ module.exports = {
 
   async execute(interaction, client) {
     const player = client.manager.players.get(interaction.guild.id);
+
     if (!player || !player.queue.current) {
       return interaction.reply({
         content: "❌ Nothing is currently playing.",
@@ -32,8 +34,8 @@ module.exports = {
     }
 
     const track = player.queue.current;
-    const position = player.position || 0;
-    const duration = track.duration || 0;
+    const position = player.position ?? 0;
+    const duration = track.duration ?? 0;
 
     const progress = duration > 0
       ? Math.min(100, Math.round((position / duration) * 100))
@@ -45,6 +47,7 @@ module.exports = {
       track.artworkUrl ||
       "https://cdn.discordapp.com/embed/avatars/0.png";
 
+    // generate card
     const buffer = await ClassicPro({
       thumbnailImage: thumb,
       backgroundColor: "#000000",
@@ -60,50 +63,21 @@ module.exports = {
       timeColor: "#e5e7eb",
     });
 
+    // BUTTON ROWS
     const row1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("music-prev")
-        .setEmoji("⏮️")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("music-back")
-        .setEmoji("⏪")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("music-pause")
-        .setEmoji("⏸️")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId("music-play")
-        .setEmoji("▶️")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId("music-skip")
-        .setEmoji("⏭️")
-        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("music-prev").setEmoji("⏮️").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("music-back").setEmoji("⏪").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("music-pause").setEmoji("⏸️").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("music-play").setEmoji("▶️").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("music-skip").setEmoji("⏭️").setStyle(ButtonStyle.Secondary),
     );
 
     const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("music-vol-down")
-        .setEmoji("🔉")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("music-vol-up")
-        .setEmoji("🔊")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("music-loop")
-        .setEmoji("🔁")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("music-refresh")
-        .setEmoji("🎨")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("music-stop")
-        .setEmoji("🛑")
-        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("music-vol-down").setEmoji("🔉").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("music-vol-up").setEmoji("🔊").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("music-loop").setEmoji("🔁").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("music-refresh").setEmoji("🎨").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("music-stop").setEmoji("🛑").setStyle(ButtonStyle.Danger),
     );
 
     const embed = new EmbedBuilder()
@@ -117,68 +91,53 @@ module.exports = {
       fetchReply: true,
     });
 
+    // BUTTON COLLECTOR
     const collector = msg.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 120_000,
     });
 
     collector.on("collect", async (i) => {
-      if (i.user.id !== interaction.user.id) {
-        return i.reply({ content: "This panel isn't for you.", ephemeral: true });
-      }
+      if (i.user.id !== interaction.user.id)
+        return i.reply({ content: "❌ This panel isn't for you.", ephemeral: true });
 
       const player = client.manager.players.get(interaction.guild.id);
-      if (!player || !player.queue.current) {
-        return i.reply({ content: "Nothing is playing anymore.", ephemeral: true });
-      }
 
-      const subTrack = player.queue.current;
+      if (!player || !player.queue.current)
+        return i.reply({ content: "❌ Nothing playing anymore.", ephemeral: true });
+
+      const tr = player.queue.current;
 
       try {
         switch (i.customId) {
-          case "music-pause":
-            if (!player.paused) player.pause(true);
-            break;
-          case "music-play":
-            if (player.paused) player.pause(false);
-            break;
-          case "music-skip":
-            player.stop();
-            break;
-          case "music-stop":
-            player.destroy();
-            collector.stop("stopped");
-            break;
-          case "music-vol-down":
-            player.setVolume(Math.max(5, (player.volume || 100) - 10));
-            break;
-          case "music-vol-up":
-            player.setVolume(Math.min(150, (player.volume || 100) + 10));
-            break;
-          case "music-loop":
-            player.setTrackRepeat(!player.trackRepeat);
-            break;
-          case "music-back":
-            player.seek(Math.max(0, player.position - 10_000));
-            break;
+          case "music-pause": player.pause(true); break;
+          case "music-play": player.pause(false); break;
+          case "music-skip": player.stop(); break;
+          case "music-stop": player.destroy(); collector.stop("ended"); break;
+          case "music-vol-down": player.setVolume(Math.max(5, player.volume - 10)); break;
+          case "music-vol-up": player.setVolume(Math.min(150, player.volume + 10)); break;
+          case "music-loop": player.setTrackRepeat(!player.trackRepeat); break;
+          case "music-back": player.seek(Math.max(0, player.position - 10_000)); break;
           case "music-prev":
-            if (player.queue.previous) {
-              player.queue.unshift(player.queue.previous);
-              player.stop();
+            if (player.queue.size > 0) {
+              const prev = player.queue.shift();
+              if (prev) {
+                player.queue.unshift(prev);
+                player.stop();
+              }
             }
             break;
-          case "music-refresh":
-            // regenerate card with updated progress
-            const pos = player.position || 0;
-            const dur = subTrack.duration || 0;
-            const prog = dur > 0
-              ? Math.min(100, Math.round((pos / dur) * 100))
-              : 0;
+
+          // REFRESH: regenerate card
+          case "music-refresh": {
+            const pos = player.position;
+            const dur = tr.duration;
+            const prog = Math.min(100, Math.round((pos / dur) * 100));
 
             const thumb2 =
-              subTrack.thumbnail ||
-              subTrack.displayThumbnail?.("hqdefault") ||
-              subTrack.artworkUrl ||
+              tr.thumbnail ||
+              tr.displayThumbnail?.("hqdefault") ||
+              tr.artworkUrl ||
               "https://cdn.discordapp.com/embed/avatars/0.png";
 
             const buf2 = await ClassicPro({
@@ -187,9 +146,9 @@ module.exports = {
               progress: prog,
               progressColor: "#22c55e",
               progressBarColor: "#111827",
-              name: subTrack.title?.slice(0, 60) || "Unknown track",
+              name: tr.title?.slice(0, 60) || "Unknown",
               nameColor: "#22c55e",
-              author: `By ${subTrack.author || "Unknown"}`,
+              author: `By ${tr.author || "Unknown"}`,
               authorColor: "#e5e7eb",
               startTime: formatTime(pos),
               endTime: formatTime(dur),
@@ -202,14 +161,16 @@ module.exports = {
               components: [row1, row2],
             });
             return;
+          }
         }
 
-        await i.deferUpdate().catch(() => {});
-      } catch (err) {
-        console.error("Error handling music control button:", err);
-        if (!i.replied && !i.deferred) {
-          await i.reply({ content: "Error handling that control.", ephemeral: true }).catch(() => {});
+        if (!i.deferred && !i.replied) {
+          await i.deferUpdate().catch(() => {});
         }
+      } catch (err) {
+        console.error("Music Control Error:", err);
+        if (!i.replied && !i.deferred)
+          i.reply({ content: "❌ Error running control.", ephemeral: true });
       }
     });
 
@@ -218,9 +179,11 @@ module.exports = {
         const disabled1 = new ActionRowBuilder().addComponents(
           row1.components.map(c => ButtonBuilder.from(c).setDisabled(true))
         );
+
         const disabled2 = new ActionRowBuilder().addComponents(
           row2.components.map(c => ButtonBuilder.from(c).setDisabled(true))
         );
+
         await msg.edit({ components: [disabled1, disabled2] }).catch(() => {});
       } catch {}
     });
