@@ -5,14 +5,14 @@ export function createMusicManager(client) {
     nodes: [
       {
         name: "main",
-        host: "lava-v4.ajieblogs.eu.org",
+        host: "lavalink.party",
         port: 443,
-        password: "ajidevserver",
+        password: "LAVA",
         secure: true
       }
     ],
 
-    plugins: [],
+    plugins: [], // Spotify disabled as requested
 
     send(id, payload) {
       const guild = client.guilds.cache.get(id);
@@ -20,17 +20,8 @@ export function createMusicManager(client) {
     }
   });
 
-  // Lavalink connection logs
-  manager.on("nodeConnect", node => {
-    console.log(`✔ Connected to Lavalink: ${node.options.name}`);
-  });
-
-  manager.on("nodeError", (node, err) => {
-    console.log(`❌ Node error: ${node.options.name}`, err);
-  });
-
-  // Required for VC
-  client.on("raw", d => manager.updateVoiceState(d));
+  // Required for voice state updates
+  client.on("raw", (d) => manager.updateVoiceState(d));
 
   return manager;
 }
