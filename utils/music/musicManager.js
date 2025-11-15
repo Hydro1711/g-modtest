@@ -5,14 +5,12 @@ export function createMusicManager(client) {
     nodes: [
       {
         name: "main",
-        host: "lavalink.party",
+        host: "lavalink.oops.wtf",
         port: 443,
-        password: "LAVA",
+        password: "www.freelavalink.node",
         secure: true
       }
     ],
-
-    plugins: [],
 
     send(id, payload) {
       const guild = client.guilds.cache.get(id);
@@ -20,20 +18,20 @@ export function createMusicManager(client) {
     }
   });
 
-  // Lavalink required events
-  manager.on("nodeConnect", (node) =>
-    console.log(`🟢 Lavalink connected: ${node.options.name}`)
-  );
+  // Log events so you can see connection status
+  manager.on("nodeConnect", (node) => {
+    console.log(`🟢 Lavalink connected: ${node.options.name}`);
+  });
 
-  manager.on("nodeError", (node, error) =>
-    console.log(`❌ Lavalink error (${node.options.name}):`, error)
-  );
+  manager.on("nodeError", (node, error) => {
+    console.log(`❌ Lavalink error (${node.options.name}):`, error);
+  });
 
-  manager.on("nodeDisconnect", (node) =>
-    console.log(`🔴 Lavalink disconnected: ${node.options.name}`)
-  );
+  manager.on("nodeDisconnect", (node) => {
+    console.log(`🔴 Lavalink disconnected: ${node.options.name}`);
+  });
 
-  // Required for voice state tracking
+  // Voice state updates
   client.on("raw", (d) => manager.updateVoiceState(d));
 
   return manager;
