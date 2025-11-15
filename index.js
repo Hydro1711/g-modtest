@@ -98,20 +98,16 @@ if (!token) {
 
 client.login(token).catch((err) => console.error("❌ Login failed:", err));
 
-// Render keep-alive web server
 const app = express();
 app.get("/", (req, res) => res.send("✅ Discord bot is running!"));
 
-// Use dynamic port for Render compatibility
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🌐 Web server running on port ${PORT}`));
 
-// Optional: self-ping every 5 minutes to prevent sleep
 setInterval(() => {
   fetch("https://g-modtest.onrender.com/").catch(() =>
     console.log("⚠️ Self-ping failed (maybe asleep)")
   );
 }, 5 * 60 * 1000); // every 5 minutes
 
-// Export client
 export default client;
