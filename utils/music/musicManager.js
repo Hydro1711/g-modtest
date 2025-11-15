@@ -5,7 +5,7 @@ export function createMusicManager(client) {
     nodes: [
       {
         identifier: "render-node",
-        host: "lavalink-server.onrender.com/", // <-- replace this
+        host: "lavalink-server.onrender.com", // <-- replace this
         port: 443,                            // Render always uses 443 for HTTPS
         password: "supersecret",              // same as application.yml
         secure: true,                         // MUST be true on Render
