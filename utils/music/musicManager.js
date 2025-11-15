@@ -4,15 +4,15 @@ export function createMusicManager(client) {
   const manager = new Manager({
     nodes: [
       {
-        name: "main-node",
+        name: "main",
         host: "lava-v4.ajieblogs.eu.org",
-        port: 80,
-        password: "https://dsc.gg/ajidevserver",
-        secure: false
+        port: 443,
+        password: "ajidevserver", // CORRECT PASSWORD
+        secure: true              // v4 REQUIRES THIS
       }
     ],
 
-    plugins: [], // no Spotify plugin
+    plugins: [], // Spotify disabled
 
     send(id, payload) {
       const guild = client.guilds.cache.get(id);
@@ -20,6 +20,8 @@ export function createMusicManager(client) {
     }
   });
 
+  // REQUIRED FOR VOICE SUPPORT
   client.on("raw", (d) => manager.updateVoiceState(d));
+
   return manager;
 }
