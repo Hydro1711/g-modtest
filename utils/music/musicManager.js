@@ -1,5 +1,4 @@
 import { Manager } from "erela.js";
-import Spotify from "erela.js-spotify";
 
 export function createMusicManager(client) {
   const manager = new Manager({
@@ -13,12 +12,7 @@ export function createMusicManager(client) {
       }
     ],
 
-    plugins: [
-      new Spotify({
-        clientID: process.env.SPOTIFY_ID,
-        clientSecret: process.env.SPOTIFY_SECRET
-      })
-    ],
+    plugins: [], // no Spotify plugin
 
     send(id, payload) {
       const guild = client.guilds.cache.get(id);
@@ -26,9 +20,6 @@ export function createMusicManager(client) {
     }
   });
 
-  // Required for voice state updates
   client.on("raw", (d) => manager.updateVoiceState(d));
-
-  client.manager = manager;
   return manager;
 }
