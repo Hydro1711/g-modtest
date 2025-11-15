@@ -4,13 +4,15 @@ export function createMusicManager(client) {
   const manager = new Manager({
     nodes: [
       {
-        name: "main",
-        host: "lavalink-replit.pw",
+        name: "main-node",
+        host: "lavalink-hydro.temp.sh",
         port: 443,
-        password: "LAVA",
+        password: "hydro_is_chilling",
         secure: true
       }
     ],
+
+    plugins: [],
 
     send(id, payload) {
       const guild = client.guilds.cache.get(id);
@@ -18,19 +20,19 @@ export function createMusicManager(client) {
     }
   });
 
-  manager.on("nodeConnect", (node) => {
+  client.on("raw", (d) => manager.updateVoiceState(d));
+
+  manager.on("nodeConnect", node => {
     console.log(`🟢 Lavalink connected: ${node.options.name}`);
   });
 
-  manager.on("nodeError", (node, error) => {
-    console.log(`❌ Lavalink error (${node.options.name}):`, error);
+  manager.on("nodeError", (node, err) => {
+    console.log(`❌ Lavalink error (${node.options.name}):`, err);
   });
 
-  manager.on("nodeDisconnect", (node) => {
+  manager.on("nodeDisconnect", node => {
     console.log(`🔴 Lavalink disconnected: ${node.options.name}`);
   });
-
-  client.on("raw", (d) => manager.updateVoiceState(d));
 
   return manager;
 }
