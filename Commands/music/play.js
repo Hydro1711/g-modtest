@@ -4,7 +4,6 @@ const {
   Colors
 } = require("discord.js");
 
-// Uses existing Lavalink+Erela.js manager: client.manager
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("play")
@@ -28,18 +27,28 @@ module.exports = {
       });
     }
 
-    await interaction.deferReply();
+    // --- SAFETY CHECK: Lavalink node online ---
+    const node = client.manager.nodes.get("main");
+    if (!node || !node.connected) {
+      return interaction.reply({
+        content: "❌ Lavalink node is not connected. Try again in a few seconds.",
+        ephemeral: true,
+      });
+    }
+
+    await interaction.deferReply().catch(() => {});
 
     try {
-      const res = await client.manager.search(query, interaction.user);
+      // --- SEARCH ---
+      const res = await client.manager.search(query, interaction.user).catch(() => null);
 
       if (!res || !res.tracks.length) {
-        return interaction.editReply({
-          content: "❌ No results found for that query.",
-        });
+        return interaction.editReply({ content: "❌ No results found." });
       }
 
+      // --- PLAYER ---
       let player = client.manager.players.get(guild.id);
+
       if (!player) {
         player = client.manager.create({
           guild: guild.id,
@@ -47,51 +56,63 @@ module.exports = {
           textChannel: channel.id,
           selfDeafen: true,
         });
+
         player.connect();
       } else if (player.voiceChannel !== voiceChannel.id) {
         return interaction.editReply({
-          content: "❌ I'm already playing in another voice channel.",
+          content: "❌ I'm already playing in a different voice channel.",
         });
       }
 
+      // --- ADD PLAYLIST ---
       if (res.loadType === "PLAYLIST_LOADED") {
-        res.tracks.forEach((t) => player.queue.add(t));
-        if (!player.playing && !player.paused && !player.queue.current) {
-          player.play();
-        }
-        const embed = new EmbedBuilder()
-          .setColor(Colors.Green)
-          .setTitle("📃 Playlist added")
-          .setDescription(
-            `Added **${res.tracks.length}** tracks from playlist **${res.playlist.name}** to the queue.`
-          );
-
-        return interaction.editReply({ embeds: [embed] });
-      } else {
-        const track = res.tracks[0];
-        player.queue.add(track);
+        for (const track of res.tracks) player.queue.add(track);
 
         if (!player.playing && !player.paused && !player.queue.current) {
           player.play();
         }
 
-        const embed = new EmbedBuilder()
-          .setColor(Colors.Green)
-          .setTitle("🎵 Track added")
-          .setDescription(`Queued: **${track.title}**`)
-          .setFooter({ text: `Requested by ${interaction.user.tag}` });
-
-        return interaction.editReply({ embeds: [embed] });
-      }
-    } catch (err) {
-      console.error("Error in /play:", err);
-      if (interaction.deferred || interaction.replied) {
         return interaction.editReply({
-          content: "❌ There was an error while searching/playing that track.",
+          embeds: [
+            new EmbedBuilder()
+              .setColor(Colors.Green)
+              .setTitle("📃 Playlist added")
+              .setDescription(
+                `Added **${res.tracks.length}** tracks from playlist:\n**${res.playlist.name}**`
+              ),
+          ],
         });
       }
-      await interaction.reply({
-        content: "❌ There was an error while searching/playing that track.",
+
+      // --- ADD SINGLE TRACK ---
+      const track = res.tracks[0];
+      player.queue.add(track);
+
+      if (!player.playing && !player.paused && !player.queue.current) {
+        player.play();
+      }
+
+      return interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(Colors.Green)
+            .setTitle("🎵 Track Added")
+            .setDescription(`**${track.title}**`)
+            .setFooter({ text: `Requested by ${interaction.user.tag}` }),
+        ],
+      });
+
+    } catch (err) {
+      console.error("🔥 /play ERROR:", err);
+
+      if (interaction.deferred) {
+        return interaction.editReply({
+          content: "❌ An unexpected error occurred while playing the track.",
+        });
+      }
+
+      return interaction.reply({
+        content: "❌ An unexpected error occurred.",
         ephemeral: true,
       });
     }
