@@ -5,9 +5,9 @@ export function createMusicManager(client) {
     nodes: [
       {
         name: "main-node",
-        host: "lavalink-hydro.temp.sh",
+        host: "lava-v4.ajieblogs.eu.org",
         port: 443,
-        password: "hydro_is_chilling",
+        password: "https://dsc.gg/ajidevserver",
         secure: true
       }
     ],
