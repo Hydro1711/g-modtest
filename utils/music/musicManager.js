@@ -12,7 +12,7 @@ export function createMusicManager(client) {
       }
     ],
 
-    plugins: [], // Spotify disabled as requested
+    plugins: [],
 
     send(id, payload) {
       const guild = client.guilds.cache.get(id);
@@ -20,7 +20,20 @@ export function createMusicManager(client) {
     }
   });
 
-  // Required for voice state updates
+  // Lavalink required events
+  manager.on("nodeConnect", (node) =>
+    console.log(`🟢 Lavalink connected: ${node.options.name}`)
+  );
+
+  manager.on("nodeError", (node, error) =>
+    console.log(`❌ Lavalink error (${node.options.name}):`, error)
+  );
+
+  manager.on("nodeDisconnect", (node) =>
+    console.log(`🔴 Lavalink disconnected: ${node.options.name}`)
+  );
+
+  // Required for voice state tracking
   client.on("raw", (d) => manager.updateVoiceState(d));
 
   return manager;
