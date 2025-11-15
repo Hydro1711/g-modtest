@@ -5,9 +5,9 @@ export function createMusicManager(client) {
     nodes: [
       {
         name: "main",
-        host: "lavalink.oops.wtf",
+        host: "lavalink-replit.pw",
         port: 443,
-        password: "www.freelavalink.node",
+        password: "LAVA",
         secure: true
       }
     ],
@@ -18,7 +18,6 @@ export function createMusicManager(client) {
     }
   });
 
-  // Log events so you can see connection status
   manager.on("nodeConnect", (node) => {
     console.log(`🟢 Lavalink connected: ${node.options.name}`);
   });
@@ -31,7 +30,6 @@ export function createMusicManager(client) {
     console.log(`🔴 Lavalink disconnected: ${node.options.name}`);
   });
 
-  // Voice state updates
   client.on("raw", (d) => manager.updateVoiceState(d));
 
   return manager;
