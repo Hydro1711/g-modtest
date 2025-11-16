@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, Colors } = require("discord.js");
-const User = require("../../models/user"); 
+const User = require("../../models/user");
 const GlobalLevel = require("../../Schemas/GlobalLevel.js");
 
 module.exports = {
@@ -7,7 +7,8 @@ module.exports = {
     .setName("wallet")
     .setDescription("Check your (or another user's) global money and chips.")
     .addUserOption(opt =>
-      opt.setName("user")
+      opt
+        .setName("user")
         .setDescription("Check someone else's wallet")
         .setRequired(false)
     ),
@@ -18,27 +19,26 @@ module.exports = {
 
     try {
       // ===============================
-      // GLOBAL MONEY
+      // GLOBAL MONEY (Upsert safe)
       // ===============================
-      let levelData = await GlobalLevel.findOne({ userId });
-      if (!levelData) {
-        levelData = await GlobalLevel.create({
-          userId,
-          balance: 0
-        });
-      }
+      const levelData = await GlobalLevel.findOneAndUpdate(
+        { userId },
+        { $setOnInsert: { balance: 0 } },
+        { new: true, upsert: true }
+      );
 
       // ===============================
-      // GLOBAL CHIPS
+      // GLOBAL CHIPS (Upsert safe)
       // ===============================
-      let chipData = await User.findOne({ userId });
-      if (!chipData) {
-        chipData = await User.create({
-          userId,
-          chips: 0
-        });
-      }
+      const chipData = await User.findOneAndUpdate(
+        { userId },
+        { $setOnInsert: { chips: 0 } },
+        { new: true, upsert: true }
+      );
 
+      // ===============================
+      // WALLET EMBED
+      // ===============================
       const embed = new EmbedBuilder()
         .setColor(Colors.Purple)
         .setTitle(`💼 ${target.username}'s Wallet`)
@@ -56,13 +56,13 @@ module.exports = {
         )
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed] });
+      return interaction.reply({ embeds: [embed] });
 
     } catch (err) {
-      console.error("Error fetching wallet:", err);
-      await interaction.reply({
+      console.error("Wallet error:", err);
+      return interaction.reply({
         content: "❌ There was an error fetching the wallet.",
-        ephemeral: true
+        ephemeral: true,
       });
     }
   },
