@@ -15,10 +15,10 @@ module.exports = {
   async execute(interaction) {
     const client = interaction.client;
 
-    const developerId = "582502664252686356"; 
+    const developerId = "582502664252686356";
 
     // ==========================================================
-    //  COMMAND CATEGORIES — WITH NEW ECONOMY COMMANDS ADDED
+    // COMMAND CATEGORIES (UPDATED + NEW COMMANDS)
     // ==========================================================
 
     const categories = {
@@ -33,7 +33,7 @@ module.exports = {
         "reset_levels",
         "resetallchips",
         "takechips",
-        "loaditems" // NEW
+        "loaditems"
       ],
 
       Moderation: [
@@ -85,15 +85,17 @@ module.exports = {
         "blackjack",
         "coinflip",
         "crypto",
-        "shop",          // NEW
-        "buy",           // NEW
-        "inventory",     // NEW
-        "cases",         // OPTIONAL
-        "plinko",        // OPTIONAL
-        "tower",         // OPTIONAL
-        "dice",          // OPTIONAL
-        "crash",         // OPTIONAL
-        "trade"          // OPTIONAL
+
+        // NEW ECONOMY SYSTEM
+        "shop",
+        "buy",
+        "inventory",
+        "cases",
+        "plinko",
+        "tower",
+        "dice",
+        "crash",
+        "trade"
       ],
 
       Public: [
@@ -110,6 +112,7 @@ module.exports = {
       ]
     };
 
+    // MENU OPTIONS
     const options = Object.keys(categories).map((cat) => ({
       label: cat,
       description: `View ${cat} commands`,
@@ -138,12 +141,11 @@ module.exports = {
           "Browse all commands using the categories below.",
           "",
           "📁 **Categories**",
-          "",
-          "🛠 **Developer** — Bot owner tools",
-          "🛡 **Moderation** — Moderation & server control",
-          "🎉 **Fun** — Games & entertainment",
-          "🎰 **Economy** — Casino, chips, items, shop",
-          "🌐 **Public** — General utilities",
+          "🛠 Developer — Bot owner tools",
+          "🛡 Moderation — Server management",
+          "🎉 Fun — Entertainment",
+          "🎰 Economy — Casino & chips",
+          "🌍 Public — Utilities & info",
           "",
           `> 👑 Developer: ${userMention(developerId)}`
         ].join("\n")
@@ -158,18 +160,21 @@ module.exports = {
       components: [row],
     });
 
+    // ==========================================================
+    // SELECT MENU HANDLER
+    // ==========================================================
+
     const collector = msg.createMessageComponentCollector({
       componentType: ComponentType.StringSelect,
-      time: 120000,
+      time: 120_000,
     });
-
-    // ==========================================================
-    // CATEGORY HANDLER
-    // ==========================================================
 
     collector.on("collect", async (i) => {
       if (i.user.id !== interaction.user.id) {
-        return i.reply({ content: "❌ Not your menu.", ephemeral: true });
+        return i.reply({
+          content: "❌ You cannot use someone else's help menu.",
+          ephemeral: true
+        });
       }
 
       const cat = i.values[0];
@@ -180,7 +185,10 @@ module.exports = {
 
         const devEmbed = new EmbedBuilder()
           .setTitle("👑 Bot Developer")
-          .setThumbnail(devUser?.displayAvatarURL({ size: 512 }) || client.user.avatarURL())
+          .setThumbnail(
+            devUser?.displayAvatarURL({ size: 512 }) ||
+              client.user.displayAvatarURL({ size: 512 })
+          )
           .setColor("#f5c542")
           .addFields(
             {
@@ -201,27 +209,27 @@ module.exports = {
         return i.update({ embeds: [devEmbed], components: [row] });
       }
 
+      // Return to home
       if (cat === "Home") {
         return i.update({ embeds: [homeEmbed], components: [row] });
       }
 
-      // ===============================================
-      // Format commands: readable, spaced, descriptive
-      // ===============================================
+      // ======================================================
+      // CATEGORY COMMAND LIST — CLEAN + COMPACT FORMAT
+      // ======================================================
 
       const cmds = categories[cat];
 
       const desc = cmds
         .map((cmdName) => {
           const cmd = client.commands.get(cmdName);
-          const displayDesc =
-            cmd?.data?.description
-              ?.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
-              ?? "No description available.";
+          const cleanDesc = cmd?.data?.description
+            ?.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
+            ?? "No description available.";
 
-          return `### • /${cmdName}\n${displayDesc}\n`;
+          return `• **/${cmdName}** — ${cleanDesc}`;
         })
-        .join("\n") || "*No commands in this category.*";
+        .join("\n");
 
       const embed = new EmbedBuilder()
         .setAuthor({
@@ -231,14 +239,16 @@ module.exports = {
         .setDescription(desc)
         .setColor("#3b82f6");
 
-      await i.update({ embeds: [embed] });
+      return i.update({ embeds: [embed], components: [row] });
     });
 
+    // Disable menu on timeout
     collector.on("end", async () => {
       const disabled = new ActionRowBuilder().addComponents(
         StringSelectMenuBuilder.from(menu).setDisabled(true)
       );
+
       await msg.edit({ components: [disabled] }).catch(() => {});
     });
-  },
+  }
 };
