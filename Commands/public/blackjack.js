@@ -8,6 +8,8 @@ const {
   ComponentType,
 } = require("discord.js");
 const User = require("../../models/user");
+const getOrCreateUser = require('../../Functions/getOrCreateUser');
+
 // const isCasinoCommandAllowed = require("../../utils/isCasinoCommandAllowed"); // adjust or uncomment
 
 const MIN_BET = 50;
