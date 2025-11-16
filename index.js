@@ -6,7 +6,6 @@ import mongoose from "mongoose";
 import express from "express";
 import fs from "fs";
 import fetch from "node-fetch";
-import { createMusicManager } from "./utils/music/musicManager.js";
 
 const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
 
@@ -78,10 +77,6 @@ client.setMaxListeners(20);
 client.once("ready", async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 
-  // 🎵 Initialize Lavalink
-  client.manager = createMusicManager(client);
-  client.manager.init(client.user.id);
-  console.log("🎶 Lavalink Manager initialized!");
 
   await loadCommands(client);
 
