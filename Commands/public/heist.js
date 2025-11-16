@@ -8,6 +8,7 @@ const {
   ComponentType,
 } = require("discord.js");
 const User = require("../../models/user");
+const getOrCreateUser = require('../../Functions/getOrCreateUser');
 
 const HEIST_COOLDOWN = 30 * 60 * 1000; // 30 minutes
 const JAIL_TIME = 45 * 60 * 1000;      // 45 minutes
