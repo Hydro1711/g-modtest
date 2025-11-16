@@ -124,7 +124,10 @@ function buildNavButtons(userId, category, page, maxPages) {
   );
 }
 
+// SAFE BUTTON BUILDER
 function buildBuyButtons(items) {
+  if (!items || items.length === 0) return []; // FIX: do not create empty rows
+
   const buttons = items.map(item =>
     new ButtonBuilder()
       .setCustomId(`shop_buy:${item.itemId}`)
@@ -133,12 +136,12 @@ function buildBuyButtons(items) {
       .setDisabled(item.maxStock > 0 && item.stock <= 0)
   );
 
-  // Split into multiple rows if needed (Discord max = 5 buttons per row)
   const rows = [];
   for (let i = 0; i < buttons.length; i += 5) {
-    rows.push(
-      new ActionRowBuilder().addComponents(buttons.slice(i, i + 5))
-    );
+    const slice = buttons.slice(i, i + 5);
+    if (slice.length > 0) {
+      rows.push(new ActionRowBuilder().addComponents(slice));
+    }
   }
 
   return rows;
@@ -181,11 +184,13 @@ module.exports = {
 
     const navRow = buildNavButtons(userId, category, safePage, maxPages);
     const catRow = buildCategorySelect(category);
-    const buyRows = buildBuyButtons(items); // Now an array of rows, not a single row
+    const buyRows = buildBuyButtons(items); // returns [] if no items
+
+    const components = [navRow, catRow, ...buyRows];
 
     await interaction.reply({
       embeds: [embed],
-      components: [navRow, catRow, ...buyRows],
+      components,
       ephemeral: false
     });
   }
