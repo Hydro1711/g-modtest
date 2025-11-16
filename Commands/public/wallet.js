@@ -1,5 +1,4 @@
 const { SlashCommandBuilder, EmbedBuilder, Colors } = require("discord.js");
-const User = require("../../models/user");
 const GlobalLevel = require("../../Schemas/GlobalLevel.js");
 const getOrCreateUser = require('../../Functions/getOrCreateUser');
 
@@ -29,13 +28,9 @@ module.exports = {
       );
 
       // ===============================
-      // GLOBAL CHIPS (SERVER-SPECIFIC, FIXED)
+      // GLOBAL CHIPS (NO guildId — FIXED)
       // ===============================
-      const chipData = await User.findOneAndUpdate(
-        { userId, guildId: interaction.guild.id },   // <-- FIXED
-        { $setOnInsert: { chips: 0 } },
-        { new: true, upsert: true }
-      );
+      const chipData = await getOrCreateUser(userId);
 
       // ===============================
       // WALLET EMBED
