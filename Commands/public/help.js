@@ -10,14 +10,13 @@ const {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("help")
-    .setDescription("View all bot commands."),
+    .setDescription("Browse all bot commands by category."),
 
   async execute(interaction) {
     const client = interaction.client;
 
     const developerId = "582502664252686356";
 
-    // Command categories (restored normal layout)
     const categories = {
       Home: [],
 
@@ -29,8 +28,7 @@ module.exports = {
         "reload",
         "reset_levels",
         "resetallchips",
-        "takechips",
-        "loaditems"
+        "takechips"
       ],
 
       Moderation: [
@@ -83,10 +81,7 @@ module.exports = {
         "coinflip",
         "crypto",
 
-        // new
-        "shop",
-        "buy",
-        "inventory",
+        // NEW ULTRA COMMANDS ↓↓↓
         "cases",
         "plinko",
         "tower",
@@ -109,90 +104,120 @@ module.exports = {
       ]
     };
 
-    const categoryOptions = Object.keys(categories).map((cat) => ({
+    // Build category selector
+    const options = Object.keys(categories).map((cat) => ({
       label: cat,
       description: `View ${cat} commands`,
-      value: cat
+      value: cat,
     }));
 
     const menu = new StringSelectMenuBuilder()
       .setCustomId("help-menu")
-      .setPlaceholder("Select a category")
-      .addOptions(categoryOptions);
+      .setPlaceholder("📂 Select a category")
+      .addOptions(options);
 
     const row = new ActionRowBuilder().addComponents(menu);
 
-    // Home embed (same minimal style)
+    // HOME PAGE (your original restored)
     const homeEmbed = new EmbedBuilder()
-      .setTitle(`${client.user.username} Help Menu`)
+      .setAuthor({
+        name: `${client.user.username} Help Center`,
+        iconURL: client.user.displayAvatarURL({ size: 256 }),
+      })
       .setDescription(
-        `Browse commands using the dropdown below.\n\n` +
-        `**Developer:** ${userMention(developerId)}`
+        [
+          "### 👋 Welcome to the Help Menu!",
+          "Browse all commands using the categories below.",
+          "",
+          "📁 **Categories:**",
+          "• Developer — Owner-only tools",
+          "• Moderation — Server management",
+          "• Fun — Entertainment",
+          "• Economy — Casino & chips",
+          "• Public — Utilities & info",
+          "",
+          `> 👑 Developer: ${userMention(developerId)}`
+        ].join("\n")
       )
       .setThumbnail(client.user.displayAvatarURL({ size: 512 }))
-      .setColor("#3b82f6");
+      .setColor("#3b82f6")
+      .setFooter({ text: "Use /help anytime to reopen this menu." })
+      .setTimestamp();
 
+    // Send main help message
     const msg = await interaction.reply({
       embeds: [homeEmbed],
-      components: [row]
+      components: [row],
     });
 
+    // Collector
     const collector = msg.createMessageComponentCollector({
       componentType: ComponentType.StringSelect,
-      time: 120_000
+      time: 120000,
     });
 
+    // Category selection
     collector.on("collect", async (i) => {
       if (i.user.id !== interaction.user.id) {
-        return i.reply({
-          content: "This is not your menu.",
-          ephemeral: true
-        });
+        return i.reply({ content: "❌ Not your menu.", ephemeral: true });
       }
 
       const cat = i.values[0];
 
-      if (cat === "Home") {
-        return i.update({ embeds: [homeEmbed], components: [row] });
-      }
-
-      // Developer profile page
+      // Developer Profile Page
       if (cat === "Developer") {
         const devUser = await client.users.fetch(developerId).catch(() => null);
 
         const devEmbed = new EmbedBuilder()
-          .setTitle("Bot Developer")
-          .setThumbnail(devUser?.displayAvatarURL({ size: 512 }) || client.user.displayAvatarURL())
+          .setTitle("👑 Bot Developer")
+          .setThumbnail(devUser?.displayAvatarURL({ size: 512 }) || client.user.avatarURL())
           .setColor("#f5c542")
           .addFields(
             {
-              name: "Developer",
-              value: devUser ? `${devUser.tag}` : developerId
+              name: "👤 Developer",
+              value: devUser
+                ? `${devUser.tag} (${userMention(developerId)})`
+                : `User ID: ${developerId}`,
             },
             {
-              name: "Commands",
-              value: categories.Developer.map((cmd) => `• /${cmd}`).join("\n")
+              name: "🛠 Developer Commands",
+              value: categories.Developer
+                .map((cmd) => `• **/${cmd}**`)
+                .join("\n"),
             }
-          );
+          )
+          .setFooter({ text: "Bot Developer Profile" });
 
         return i.update({ embeds: [devEmbed], components: [row] });
       }
 
+      // Home page return
+      if (cat === "Home") {
+        return i.update({ embeds: [homeEmbed], components: [row] });
+      }
+
+      // Other categories
       const cmds = categories[cat];
 
-      const description = cmds
+      const desc = cmds
         .map((cmdName) => {
           const cmd = client.commands.get(cmdName);
-          return `/${cmdName} — ${cmd?.data?.description || "No description available."}`;
+          const cleanDesc = (cmd?.data?.description || "No description available.")
+            .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "");
+
+          return `• **/${cmdName}** — ${cleanDesc}`;
         })
-        .join("\n");
+        .join("\n") || "*No commands in this category.*";
 
       const embed = new EmbedBuilder()
-        .setTitle(`${cat} Commands`)
-        .setDescription(description)
+        .setAuthor({
+          name: `${cat} Commands`,
+          iconURL: client.user.displayAvatarURL({ size: 256 }),
+        })
+        .setDescription(desc)
         .setColor("#3b82f6");
 
-      return i.update({ embeds: [embed], components: [row] });
+      await i.update({ embeds: [embed] });
     });
 
     collector.on("end", async () => {
@@ -201,5 +226,5 @@ module.exports = {
       );
       await msg.edit({ components: [disabled] }).catch(() => {});
     });
-  }
+  },
 };
