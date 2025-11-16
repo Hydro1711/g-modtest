@@ -1,6 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const isCasinoCommandAllowed = require('../../Functions/isCasinoCommandAllowed');
 const User = require('../../models/user');
+const getOrCreateUser = require('../../Functions/getOrCreateUser');
+
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -65,4 +67,5 @@ module.exports = {
     await interaction.reply({ embeds: [embed] });
   },
 };
+
 
