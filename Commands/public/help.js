@@ -15,7 +15,11 @@ module.exports = {
   async execute(interaction) {
     const client = interaction.client;
 
-    const developerId = "582502664252686356"; // <--- your ID
+    const developerId = "582502664252686356"; 
+
+    // ==========================================================
+    //  COMMAND CATEGORIES — WITH NEW ECONOMY COMMANDS ADDED
+    // ==========================================================
 
     const categories = {
       Home: [],
@@ -28,7 +32,8 @@ module.exports = {
         "reload",
         "reset_levels",
         "resetallchips",
-        "takechips"
+        "takechips",
+        "loaditems" // NEW
       ],
 
       Moderation: [
@@ -79,7 +84,16 @@ module.exports = {
         "leaderboard",
         "blackjack",
         "coinflip",
-        "crypto"
+        "crypto",
+        "shop",          // NEW
+        "buy",           // NEW
+        "inventory",     // NEW
+        "cases",         // OPTIONAL
+        "plinko",        // OPTIONAL
+        "tower",         // OPTIONAL
+        "dice",          // OPTIONAL
+        "crash",         // OPTIONAL
+        "trade"          // OPTIONAL
       ],
 
       Public: [
@@ -109,7 +123,10 @@ module.exports = {
 
     const row = new ActionRowBuilder().addComponents(menu);
 
+    // ==========================================================
     // HOME PAGE
+    // ==========================================================
+
     const homeEmbed = new EmbedBuilder()
       .setAuthor({
         name: `${client.user.username} Help Center`,
@@ -120,12 +137,13 @@ module.exports = {
           "### 👋 Welcome to the Help Menu!",
           "Browse all commands using the categories below.",
           "",
-          "📁 **Categories:**",
-          "• Developer — Owner-only tools",
-          "• Moderation — Server management",
-          "• Fun — Entertainment",
-          "• Economy — Casino & chips",
-          "• Public — Utilities & info",
+          "📁 **Categories**",
+          "",
+          "🛠 **Developer** — Bot owner tools",
+          "🛡 **Moderation** — Moderation & server control",
+          "🎉 **Fun** — Games & entertainment",
+          "🎰 **Economy** — Casino, chips, items, shop",
+          "🌐 **Public** — General utilities",
           "",
           `> 👑 Developer: ${userMention(developerId)}`
         ].join("\n")
@@ -145,6 +163,10 @@ module.exports = {
       time: 120000,
     });
 
+    // ==========================================================
+    // CATEGORY HANDLER
+    // ==========================================================
+
     collector.on("collect", async (i) => {
       if (i.user.id !== interaction.user.id) {
         return i.reply({ content: "❌ Not your menu.", ephemeral: true });
@@ -152,7 +174,7 @@ module.exports = {
 
       const cat = i.values[0];
 
-      // Developer profile page when clicking the Developer category
+      // Developer profile
       if (cat === "Developer") {
         const devUser = await client.users.fetch(developerId).catch(() => null);
 
@@ -183,15 +205,21 @@ module.exports = {
         return i.update({ embeds: [homeEmbed], components: [row] });
       }
 
+      // ===============================================
+      // Format commands: readable, spaced, descriptive
+      // ===============================================
+
       const cmds = categories[cat];
 
       const desc = cmds
         .map((cmdName) => {
           const cmd = client.commands.get(cmdName);
-          const cleanDesc = (cmd?.data?.description || "No description available.")
-            .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "");
+          const displayDesc =
+            cmd?.data?.description
+              ?.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
+              ?? "No description available.";
 
-          return `• **/${cmdName}** — ${cleanDesc}`;
+          return `### • /${cmdName}\n${displayDesc}\n`;
         })
         .join("\n") || "*No commands in this category.*";
 
