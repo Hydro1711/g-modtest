@@ -8,6 +8,7 @@ const {
 } = require('discord.js');
 const User = require('../../models/user');
 const isCasinoCommandAllowed = require('../../Functions/isCasinoCommandAllowed');
+const getOrCreateUser = require('../../Functions/getOrCreateUser');
 
 function generateMinesGrid(bombCount = 5) {
   const grid = Array(25).fill('safe');
@@ -211,3 +212,4 @@ module.exports = {
     });
   },
 };
+
