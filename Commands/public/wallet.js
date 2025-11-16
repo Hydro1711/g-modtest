@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, Colors } = require("discord.js");
 const User = require("../../models/user");
 const GlobalLevel = require("../../Schemas/GlobalLevel.js");
+const getOrCreateUser = require('../../Functions/getOrCreateUser');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -67,3 +68,4 @@ module.exports = {
     }
   },
 };
+
