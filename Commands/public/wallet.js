@@ -1,15 +1,13 @@
-// commands/wallet.js
 const { SlashCommandBuilder, EmbedBuilder, Colors } = require("discord.js");
-const User = require("../../models/user"); // chips
-const GlobalLevel = require("../../Schemas/GlobalLevel.js"); // money
+const User = require("../../models/user"); 
+const GlobalLevel = require("../../Schemas/GlobalLevel.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("wallet")
     .setDescription("Check your (or another user's) global money and chips.")
     .addUserOption(opt =>
-      opt
-        .setName("user")
+      opt.setName("user")
         .setDescription("Check someone else's wallet")
         .setRequired(false)
     ),
@@ -17,12 +15,12 @@ module.exports = {
   async execute(interaction) {
     const target = interaction.options.getUser("user") || interaction.user;
     const userId = target.id;
-    const guildId = interaction.guild.id;
 
     try {
-      // Fetch global money
+      // ===============================
+      // GLOBAL MONEY
+      // ===============================
       let levelData = await GlobalLevel.findOne({ userId });
-
       if (!levelData) {
         levelData = await GlobalLevel.create({
           userId,
@@ -30,13 +28,13 @@ module.exports = {
         });
       }
 
-      // Fetch global chips (this schema requires guildId!)
-      let chipData = await User.findOne({ userId, guildId });
-
+      // ===============================
+      // GLOBAL CHIPS
+      // ===============================
+      let chipData = await User.findOne({ userId });
       if (!chipData) {
         chipData = await User.create({
           userId,
-          guildId,
           chips: 0
         });
       }
@@ -59,6 +57,7 @@ module.exports = {
         .setTimestamp();
 
       await interaction.reply({ embeds: [embed] });
+
     } catch (err) {
       console.error("Error fetching wallet:", err);
       await interaction.reply({
