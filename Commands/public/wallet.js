@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, Colors } = require("discord.js");
+const User = require("../../models/user");
 const GlobalLevel = require("../../Schemas/GlobalLevel.js");
-const getOrCreateUser = require('../../Functions/getOrCreateUser');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -18,23 +18,22 @@ module.exports = {
     const userId = target.id;
 
     try {
-      // ===============================
-      // GLOBAL MONEY (Upsert safe)
-      // ===============================
+
+      // GLOBAL MONEY
       const levelData = await GlobalLevel.findOneAndUpdate(
         { userId },
         { $setOnInsert: { balance: 0 } },
         { new: true, upsert: true }
       );
 
-      // ===============================
-      // GLOBAL CHIPS (NO guildId — FIXED)
-      // ===============================
-      const chipData = await getOrCreateUser(userId);
+      // GLOBAL CHIPS (FIXED)
+      const chipData = await User.findOneAndUpdate(
+        { userId },
+        { $setOnInsert: { chips: 0 } },
+        { new: true, upsert: true }
+      );
 
-      // ===============================
-      // WALLET EMBED
-      // ===============================
+      // EMBED
       const embed = new EmbedBuilder()
         .setColor(Colors.Purple)
         .setTitle(`💼 ${target.username}'s Wallet`)
@@ -56,10 +55,13 @@ module.exports = {
 
     } catch (err) {
       console.error("Wallet error:", err);
-      return interaction.reply({
-        content: "❌ There was an error fetching the wallet.",
-        ephemeral: true,
-      });
+
+      if (!interaction.replied) {
+        return interaction.reply({
+          content: "❌ There was an error fetching the wallet.",
+          ephemeral: true,
+        });
+      }
     }
   },
 };
