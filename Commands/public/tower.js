@@ -7,6 +7,7 @@ const {
   ComponentType
 } = require("discord.js");
 const User = require("../../models/user");
+const getOrCreateUser = require('../../Functions/getOrCreateUser');
 
 const MIN_BET = 100;
 const MAX_BET = 500_000;
