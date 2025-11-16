@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const User = require("../../models/user");
+const getOrCreateUser = require('../../Functions/getOrCreateUser');
 
 const MIN_BET = 50;
 const MAX_BET = 500_000;
