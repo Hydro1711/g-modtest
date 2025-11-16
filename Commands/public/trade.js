@@ -8,6 +8,7 @@ const {
   userMention
 } = require("discord.js");
 const User = require("../../models/user");
+const getOrCreateUser = require('../../Functions/getOrCreateUser');
 
 module.exports = {
   data: new SlashCommandBuilder()
