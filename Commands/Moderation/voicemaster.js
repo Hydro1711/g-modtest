@@ -43,7 +43,7 @@ Manage your **temporary voice channels** using the buttons below.
 `)
 
     .setFooter({
-      text: "BimmerBot VoiceMaster System • Premium Experience",
+      text: "M-Guard VoiceMaster System • Premium Experience",
       iconURL: guild.iconURL({ dynamic: true }),
     })
     .setTimestamp();
@@ -211,3 +211,4 @@ module.exports = {
     }
   },
 };
+
