@@ -26,7 +26,7 @@ module.exports = {
       return interaction.reply({ content: '<:closeIcon:1395099724473700544> Bet must be more than 0.', ephemeral: true });
     }
 
-    const userData = await User.findOne({ userId: user.id, guildId: guild.id });
+    const userData = await getOrCreateUser(user.id);
     if (!userData || userData.chips < bet) {
       return interaction.reply({ content: '<:closeIcon:1395099724473700544> Not enough chips!', ephemeral: true });
     }
@@ -65,3 +65,4 @@ module.exports = {
     await interaction.reply({ embeds: [embed] });
   },
 };
+
