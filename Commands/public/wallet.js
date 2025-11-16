@@ -29,10 +29,10 @@ module.exports = {
       );
 
       // ===============================
-      // GLOBAL CHIPS (Upsert safe)
+      // GLOBAL CHIPS (SERVER-SPECIFIC, FIXED)
       // ===============================
       const chipData = await User.findOneAndUpdate(
-        { userId },
+        { userId, guildId: interaction.guild.id },   // <-- FIXED
         { $setOnInsert: { chips: 0 } },
         { new: true, upsert: true }
       );
@@ -68,4 +68,3 @@ module.exports = {
     }
   },
 };
-
