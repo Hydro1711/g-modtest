@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } = require('discor
 const path = require('path');
 const User = require('../../models/user');
 const isCasinoCommandAllowed = require('../../Functions/isCasinoCommandAllowed');
+const getOrCreateUser = require('../../Functions/getOrCreateUser');
 
 const RED = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 const BLACK = [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35];
@@ -115,3 +116,4 @@ module.exports = {
     await interaction.reply({ embeds: [embed], files: [image] });
   }
 };
+
