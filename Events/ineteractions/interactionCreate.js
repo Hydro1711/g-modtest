@@ -7,8 +7,8 @@ const {
 } = require("discord.js");
 
 const Poll = require("../../Schemas/poll");
-const ShopItem = require("../../Schemas/ShopItem"); // update path as needed
-const User = require("../../Schemas/User");         // update path as needed
+const ShopItem = require("../../models/ShopItem");
+const User = require("../../models/user");
 
 // SHOP HELPERS
 const ITEMS_PER_PAGE = 5;
@@ -317,3 +317,4 @@ module.exports = {
         }
     }
 };
+
