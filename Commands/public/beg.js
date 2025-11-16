@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, Colors } = require("discord.js");
 const User = require("../../models/user");
+const getOrCreateUser = require('../../Functions/getOrCreateUser');
 
 const BEG_COOLDOWN = 45 * 1000; // 45 seconds
 
