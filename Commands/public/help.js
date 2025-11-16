@@ -4,6 +4,7 @@ const {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   ComponentType,
+  userMention
 } = require("discord.js");
 
 module.exports = {
@@ -13,6 +14,8 @@ module.exports = {
 
   async execute(interaction) {
     const client = interaction.client;
+
+    const developerId = "582502664252686356"; // <--- your ID
 
     const categories = {
       Home: [],
@@ -69,13 +72,14 @@ module.exports = {
         "mines",
         "claim",
         "give",
-        "resetallchips",
-        "setup_casino_channel",
         "weekly",
         "work",
         "beg",
         "heist",
-        "leaderboard"
+        "leaderboard",
+        "blackjack",
+        "coinflip",
+        "crypto"
       ],
 
       Public: [
@@ -86,7 +90,6 @@ module.exports = {
         "botinfo",
         "invite",
         "afk",
-        "crypto",
         "spotify",
         "tts",
         "help"
@@ -106,7 +109,7 @@ module.exports = {
 
     const row = new ActionRowBuilder().addComponents(menu);
 
-    // homepage UI stays with emojis
+    // HOME PAGE
     const homeEmbed = new EmbedBuilder()
       .setAuthor({
         name: `${client.user.username} Help Center`,
@@ -115,18 +118,16 @@ module.exports = {
       .setDescription(
         [
           "### 👋 Welcome to the Help Menu!",
-          "Browse all available commands by choosing a category below.",
+          "Browse all commands using the categories below.",
           "",
           "📁 **Categories:**",
           "• Developer — Owner-only tools",
-          "• Moderation — Server management commands",
-          "• Fun — Entertainment & roleplay",
-          "• Economy — Casino & chip system",
-          "• Public — General utilities & info",
+          "• Moderation — Server management",
+          "• Fun — Entertainment",
+          "• Economy — Casino & chips",
+          "• Public — Utilities & info",
           "",
-          "Use the **dropdown below** to switch categories.",
-          "",
-          `> 👑 Developer: ${client.application?.owner?.tag || "Developer"}`
+          `> 👑 Developer: ${userMention(developerId)}`
         ].join("\n")
       )
       .setThumbnail(client.user.displayAvatarURL({ size: 512 }))
@@ -145,19 +146,45 @@ module.exports = {
     });
 
     collector.on("collect", async (i) => {
-      if (i.user.id !== interaction.user.id)
+      if (i.user.id !== interaction.user.id) {
         return i.reply({ content: "❌ Not your menu.", ephemeral: true });
+      }
 
       const cat = i.values[0];
 
+      // Developer profile page when clicking the Developer category
+      if (cat === "Developer") {
+        const devUser = await client.users.fetch(developerId).catch(() => null);
+
+        const devEmbed = new EmbedBuilder()
+          .setTitle("👑 Bot Developer")
+          .setThumbnail(devUser?.displayAvatarURL({ size: 512 }) || client.user.avatarURL())
+          .setColor("#f5c542")
+          .addFields(
+            {
+              name: "👤 Developer",
+              value: devUser
+                ? `${devUser.tag} (${userMention(developerId)})`
+                : `User ID: ${developerId}`,
+            },
+            {
+              name: "🛠 Developer Commands",
+              value: categories.Developer
+                .map((cmd) => `• **/${cmd}**`)
+                .join("\n"),
+            }
+          )
+          .setFooter({ text: "Bot Developer Profile" });
+
+        return i.update({ embeds: [devEmbed], components: [row] });
+      }
+
       if (cat === "Home") {
-        await i.update({ embeds: [homeEmbed], components: [row] });
-        return;
+        return i.update({ embeds: [homeEmbed], components: [row] });
       }
 
       const cmds = categories[cat];
 
-      // remove emojis from descriptions ONLY
       const desc = cmds
         .map((cmdName) => {
           const cmd = client.commands.get(cmdName);
@@ -174,8 +201,7 @@ module.exports = {
           iconURL: client.user.displayAvatarURL({ size: 256 }),
         })
         .setDescription(desc)
-        .setColor("#3b82f6")
-        .setFooter({ text: "Select another category from the dropdown." });
+        .setColor("#3b82f6");
 
       await i.update({ embeds: [embed] });
     });
