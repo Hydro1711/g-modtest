@@ -1,7 +1,7 @@
 // commands/economy/buy.js
 const { SlashCommandBuilder } = require('discord.js');
-const ShopItem = require('../../models/ShopItem');
-const User = require('../../models/User'); // adjust path
+const User = require("../../models/user");
+const ShopItem = require("../../models/ShopItem");
 
 module.exports = {
   data: new SlashCommandBuilder()
