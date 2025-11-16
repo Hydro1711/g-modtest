@@ -2,6 +2,7 @@
 const { SlashCommandBuilder } = require("discord.js");
 const User = require("../../models/user");
 const ShopItem = require("../../models/ShopItem");
+const getOrCreateUser = require('../../Functions/getOrCreateUser');
 
 module.exports = {
   data: new SlashCommandBuilder()
