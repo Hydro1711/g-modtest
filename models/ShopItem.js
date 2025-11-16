@@ -1,56 +1,429 @@
-// models/ShopItem.js
-const { Schema, model } = require('mongoose');
+// Commands/public/loaditems.js
+const { SlashCommandBuilder } = require("discord.js");
+const ShopItem = require("../../models/ShopItem");
 
-const shopItemSchema = new Schema({
-  itemId: { type: String, unique: true, required: true }, // internal ID used in code/buttons
-  name: { type: String, required: true },
-  description: { type: String, default: 'No description provided.' },
-  emoji: { type: String, default: '🧩' },
+const DEV_ID = "582502664252686356"; // you
 
-  category: {
-    type: String,
-    enum: ['boost', 'upgrade', 'case', 'cosmetic', 'special', 'utility'],
-    required: true
+// Modern Tech + Gambling themed items
+const ITEMS = [
+  // --- WORK / INCOME BOOSTS ---
+  {
+    itemId: "coffee_thermos",
+    name: "Coffee Thermos",
+    description: "Small productivity boost. +3% /work payout.",
+    emoji: "☕",
+    category: "boost",
+    rarity: "common",
+    basePrice: 800,
+    dynamicPricing: false,
+    effects: { workMultiplier: 1.03 }
+  },
+  {
+    itemId: "work_gloves",
+    name: "Work Gloves",
+    description: "Grippy gloves for serious grinding. +10% /work payout.",
+    emoji: "🧤",
+    category: "boost",
+    rarity: "uncommon",
+    basePrice: 2500,
+    dynamicPricing: true,
+    effects: { workMultiplier: 1.1 }
+  },
+  {
+    itemId: "led_desk_setup",
+    name: "LED Desk Setup",
+    description: "RGB = more focus. +7% /work payout.",
+    emoji: "💡",
+    category: "upgrade",
+    rarity: "uncommon",
+    basePrice: 9000,
+    dynamicPricing: true,
+    effects: { workMultiplier: 1.07 }
+  },
+  {
+    itemId: "executive_briefcase",
+    name: "Executive Briefcase",
+    description: "You look like you know what you’re doing. +20% /work payout.",
+    emoji: "💼",
+    category: "boost",
+    rarity: "rare",
+    basePrice: 15000,
+    dynamicPricing: true,
+    effects: { workMultiplier: 1.2 }
+  },
+  {
+    itemId: "golden_briefcase",
+    name: "Golden Briefcase",
+    description: "Top-tier executive gear. +35% /work payout.",
+    emoji: "🧳",
+    category: "boost",
+    rarity: "epic",
+    basePrice: 45000,
+    dynamicPricing: true,
+    effects: { workMultiplier: 1.35 }
+  },
+  {
+    itemId: "infinite_coffee_machine",
+    name: "Infinite Coffee Machine",
+    description: "Never run out of caffeine. +60% /work payout.",
+    emoji: "🧃",
+    category: "boost",
+    rarity: "legendary",
+    basePrice: 200000,
+    dynamicPricing: true,
+    effects: { workMultiplier: 1.6 }
   },
 
-  rarity: {
-    type: String,
-    enum: ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'],
-    default: 'common'
+  // --- CASINO BOOSTS ---
+  {
+    itemId: "lucky_coin",
+    name: "Lucky Coin",
+    description: "A simple coin that seems to land your way.",
+    emoji: "🪙",
+    category: "boost",
+    rarity: "common",
+    basePrice: 1500,
+    dynamicPricing: false,
+    effects: { luckBonus: 1 }
+  },
+  {
+    itemId: "lucky_charm",
+    name: "Lucky Charm",
+    description: "Slightly increases your luck in casino games.",
+    emoji: "🍀",
+    category: "boost",
+    rarity: "uncommon",
+    basePrice: 7500,
+    dynamicPricing: true,
+    effects: { casinoMultiplier: 1.05, luckBonus: 2 }
+  },
+  {
+    itemId: "silver_chip_card",
+    name: "Silver Chip Card",
+    description: "A modest permanent boost to casino winnings.",
+    emoji: "🎴",
+    category: "boost",
+    rarity: "rare",
+    basePrice: 30000,
+    dynamicPricing: true,
+    effects: { casinoMultiplier: 1.1 }
+  },
+  {
+    itemId: "high_roller_card",
+    name: "High Roller Card",
+    description: "High roller access: +25% casino payouts.",
+    emoji: "🎟️",
+    category: "boost",
+    rarity: "epic",
+    basePrice: 120000,
+    dynamicPricing: true,
+    effects: { casinoMultiplier: 1.25, luckBonus: 5 }
+  },
+  {
+    itemId: "black_diamond_card",
+    name: "Black Diamond Card",
+    description: "Elite gambler status. Massive casino advantage.",
+    emoji: "💳",
+    category: "boost",
+    rarity: "legendary",
+    basePrice: 750000,
+    dynamicPricing: true,
+    effects: { casinoMultiplier: 1.4, luckBonus: 10 }
   },
 
-  basePrice: { type: Number, required: true },   // base chip cost
-  dynamicPricing: { type: Boolean, default: false },
+  // --- HEIST / CRIME BOOSTS ---
+  {
+    itemId: "heist_mask",
+    name: "Heist Mask",
+    description: "A simple mask to hide your identity. Small heist boost.",
+    emoji: "🎭",
+    category: "boost",
+    rarity: "uncommon",
+    basePrice: 10000,
+    dynamicPricing: true,
+    effects: { heistBoost: 0.1 }
+  },
+  {
+    itemId: "blueprint_kit",
+    name: "Blueprint Kit",
+    description: "Detailed building plans. Better heist planning.",
+    emoji: "📐",
+    category: "boost",
+    rarity: "rare",
+    basePrice: 45000,
+    dynamicPricing: true,
+    effects: { heistBoost: 0.25 }
+  },
+  {
+    itemId: "inside_man_contract",
+    name: "Inside Man Contract",
+    description: "Someone on the inside owes you a favor.",
+    emoji: "🧾",
+    category: "special",
+    rarity: "epic",
+    basePrice: 150000,
+    dynamicPricing: true,
+    effects: { heistBoost: 0.4 }
+  },
 
-  demandIndex: { type: Number, default: 0 },     // 0.00 – 1.00, affects dynamic price
-  maxStock: { type: Number, default: 0 },        // 0 = unlimited
-  stock: { type: Number, default: 0 },           // current stock
-  expiresAt: { type: Date, default: null },      // null = permanent
+  // --- TECH / MODERN UTILITY ---
+  {
+    itemId: "crypto_mining_rig",
+    name: "Crypto Mining Rig",
+    description: "Generates passive chips over time (future feature).",
+    emoji: "🖥️",
+    category: "utility",
+    rarity: "epic",
+    basePrice: 300000,
+    dynamicPricing: true
+  },
+  {
+    itemId: "vault_upgrade",
+    name: "Vault Upgrade",
+    description: "Improves chip protection and storage space.",
+    emoji: "🏦",
+    category: "utility",
+    rarity: "epic",
+    basePrice: 450000,
+    dynamicPricing: true
+  },
+  {
+    itemId: "backup_chip_wallet",
+    name: "Backup Chip Wallet",
+    description: "Protects some chips from huge losses.",
+    emoji: "👝",
+    category: "utility",
+    rarity: "epic",
+    basePrice: 180000,
+    dynamicPricing: true
+  },
+  {
+    itemId: "statistics_tracker",
+    name: "Statistics Tracker",
+    description: "Unlocks more detailed personal stats (future).",
+    emoji: "📊",
+    category: "utility",
+    rarity: "rare",
+    basePrice: 50000,
+    dynamicPricing: false
+  },
 
-  purchasable: { type: Boolean, default: true },
-  sortOrder: { type: Number, default: 0 },
+  // --- CASES / CRATES ---
+  {
+    itemId: "bronze_case",
+    name: "Bronze Case",
+    description: "Cheap case with low-mid tier loot.",
+    emoji: "📦",
+    category: "case",
+    rarity: "common",
+    basePrice: 5000,
+    dynamicPricing: false
+  },
+  {
+    itemId: "silver_case",
+    name: "Silver Case",
+    description: "Better odds for decent boosts.",
+    emoji: "🎁",
+    category: "case",
+    rarity: "uncommon",
+    basePrice: 20000,
+    dynamicPricing: false
+  },
+  {
+    itemId: "gold_case",
+    name: "Gold Case",
+    description: "Higher chance of rare/epic items.",
+    emoji: "🧰",
+    category: "case",
+    rarity: "rare",
+    basePrice: 60000,
+    dynamicPricing: false
+  },
+  {
+    itemId: "diamond_case",
+    name: "Diamond Case",
+    description: "Premium case with only high-tier loot.",
+    emoji: "💼",
+    category: "case",
+    rarity: "epic",
+    basePrice: 200000,
+    dynamicPricing: false
+  },
+  {
+    itemId: "mythic_vault",
+    name: "Mythic Vault",
+    description: "Contains only insane, top-tier rewards.",
+    emoji: "🗄️",
+    category: "case",
+    rarity: "mythic",
+    basePrice: 1000000,
+    dynamicPricing: false
+  },
 
-  // Effects for future integration with your games
-  effects: {
-    workMultiplier: { type: Number, default: 1 },        // affects /work
-    casinoMultiplier: { type: Number, default: 1 },      // affects slots/roulette/blackjack etc
-    luckBonus: { type: Number, default: 0 },             // generic luck boost
-    cooldownReductionMs: { type: Number, default: 0 },   // reduce cooldowns
-    heistBoost: { type: Number, default: 0 },            // better heist odds/reward
-    interestBonus: { type: Number, default: 0 },         // for /invest later
-    isConsumable: { type: Boolean, default: false },     // item gets consumed on use
-    durationMs: { type: Number, default: 0 }             // temporary effects
+  // --- COSMETICS ---
+  {
+    itemId: "custom_profile_frame",
+    name: "Custom Profile Frame",
+    description: "Adds a stylish frame in bot profiles/leaderboards.",
+    emoji: "🖼️",
+    category: "cosmetic",
+    rarity: "rare",
+    basePrice: 40000,
+    dynamicPricing: false
+  },
+  {
+    itemId: "chat_name_tag",
+    name: "Fancy Name Tag",
+    description: "Shows a special label on your bot profile.",
+    emoji: "🏷️",
+    category: "cosmetic",
+    rarity: "uncommon",
+    basePrice: 15000,
+    dynamicPricing: false
+  },
+  {
+    itemId: "golden_title",
+    name: "Golden Title",
+    description: "Golden title visible in certain bot messages.",
+    emoji: "👑",
+    category: "cosmetic",
+    rarity: "epic",
+    basePrice: 125000,
+    dynamicPricing: true
+  },
+  {
+    itemId: "cosmic_aura",
+    name: "Cosmic Aura",
+    description: "Cosmic effects around your profile in embeds.",
+    emoji: "🌌",
+    category: "cosmetic",
+    rarity: "legendary",
+    basePrice: 500000,
+    dynamicPricing: true
+  },
+  {
+    itemId: "luxury_penthouse",
+    name: "Luxury Penthouse",
+    description: "Bragging rights only. Minor work bonus.",
+    emoji: "🏙️",
+    category: "cosmetic",
+    rarity: "legendary",
+    basePrice: 1200000,
+    dynamicPricing: true,
+    effects: { workMultiplier: 1.1 }
+  },
+
+  // --- SPECIAL HIGH-END ITEMS ---
+  {
+    itemId: "insurance_token",
+    name: "Insurance Token",
+    description: "Refunds 50% of your next major loss.",
+    emoji: "🛡️",
+    category: "special",
+    rarity: "rare",
+    basePrice: 85000,
+    dynamicPricing: true,
+    effects: { isConsumable: true }
+  },
+  {
+    itemId: "phoenix_token",
+    name: "Phoenix Token",
+    description: "If you ever hit 0 chips, revives you.",
+    emoji: "🔥",
+    category: "special",
+    rarity: "epic",
+    basePrice: 250000,
+    dynamicPricing: true,
+    effects: { isConsumable: true }
+  },
+  {
+    itemId: "jackpot_key",
+    name: "Jackpot Key",
+    description: "One-time access to a special high-roller game.",
+    emoji: "🔑",
+    category: "special",
+    rarity: "legendary",
+    basePrice: 600000,
+    dynamicPricing: true,
+    effects: { isConsumable: true }
+  },
+  {
+    itemId: "golden_parachute",
+    name: "Golden Parachute",
+    description: "Softens the blow of catastrophic losses.",
+    emoji: "🪂",
+    category: "special",
+    rarity: "legendary",
+    basePrice: 900000,
+    dynamicPricing: true
+  },
+  {
+    itemId: "server_sponsor",
+    name: "Server Sponsor",
+    description: "Massive permanent boost. Shows your support.",
+    emoji: "💰",
+    category: "special",
+    rarity: "mythic",
+    basePrice: 2500000,
+    dynamicPricing: true,
+    effects: { casinoMultiplier: 1.5, workMultiplier: 1.5 }
+  },
+  {
+    itemId: "cosmic_patrons_pass",
+    name: "Cosmic Patron's Pass",
+    description: "For the absolutely cracked rich players.",
+    emoji: "🌠",
+    category: "special",
+    rarity: "mythic",
+    basePrice: 5000000,
+    dynamicPricing: true,
+    effects: { casinoMultiplier: 1.8, workMultiplier: 1.7, luckBonus: 15 }
   }
-}, {
-  timestamps: true
-});
+];
 
-shopItemSchema.methods.getCurrentPrice = function () {
-  if (!this.dynamicPricing) return this.basePrice;
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName("loaditems")
+    .setDescription("Developer: load default shop items into the database.")
+    .setDMPermission(false),
 
-  // Simple dynamic price formula (can tune later)
-  const multiplier = 1 + Math.min(this.demandIndex || 0, 1);
-  return Math.max(1, Math.round(this.basePrice * multiplier));
+  category: "Developer",
+
+  async execute(interaction) {
+    if (interaction.user.id !== DEV_ID) {
+      return interaction.reply({
+        content: "❌ Only the bot developer can use this command.",
+        ephemeral: true
+      });
+    }
+
+    await interaction.reply({ content: "⏳ Loading shop items...", ephemeral: true });
+
+    let upserted = 0;
+    for (const data of ITEMS) {
+      const update = {
+        ...data,
+        purchasable: true
+      };
+
+      await ShopItem.findOneAndUpdate(
+        { itemId: data.itemId },
+        {
+          $set: update,
+          $setOnInsert: {
+            stock: data.maxStock || 0,
+            demandIndex: data.demandIndex || 0,
+            sortOrder: 0
+          }
+        },
+        { upsert: true }
+      );
+
+      upserted++;
+    }
+
+    await interaction.editReply({
+      content: `✅ Loaded/updated **${upserted}** shop items into the database.`
+    });
+  }
 };
-
-module.exports = model('ShopItem', shopItemSchema);
