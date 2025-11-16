@@ -54,9 +54,11 @@ function buildShopEmbed(user, items, category, page, maxPages) {
 
   for (const item of items) {
     const price = item.getCurrentPrice ? item.getCurrentPrice() : item.basePrice;
-    let value = `**Price:** \`${price.toLocaleString()} chips\`\n` +
-                `**Rarity:** \`${item.rarity}\`\n` +
-                `**Category:** \`${CATEGORY_LABELS[item.category] || item.category}\``;
+
+    let value =
+      `**Price:** \`${price.toLocaleString()} chips\`\n` +
+      `**Rarity:** \`${item.rarity}\`\n` +
+      `**Category:** \`${CATEGORY_LABELS[item.category] || item.category}\``;
 
     if (item.maxStock && item.maxStock > 0) {
       value += `\n**Stock:** \`${item.stock}/${item.maxStock}\``;
@@ -97,20 +99,24 @@ function buildNavButtons(userId, category, page, maxPages) {
       .setLabel('Previous')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page <= 1),
+
     new ButtonBuilder()
       .setCustomId('shop_page_display')
-      .setLabel(`Page ${page}/${maxPages || 1}`)
+      .setLabel(`Page ${page}/${maxPages}`)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(true),
+
     new ButtonBuilder()
       .setCustomId(`shop_next:${userId}:${category}:${page}`)
       .setLabel('Next')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page >= maxPages),
+
     new ButtonBuilder()
       .setCustomId(`shop_inventory:${userId}`)
       .setLabel('My Inventory')
       .setStyle(ButtonStyle.Primary),
+
     new ButtonBuilder()
       .setCustomId(`shop_close:${userId}`)
       .setLabel('Close')
@@ -119,26 +125,27 @@ function buildNavButtons(userId, category, page, maxPages) {
 }
 
 function buildBuyButtons(items) {
-  // One row with up to 5 buttons, each button = purchase that item once
-  const row = new ActionRowBuilder();
+  const buttons = items.map(item =>
+    new ButtonBuilder()
+      .setCustomId(`shop_buy:${item.itemId}`)
+      .setLabel(item.name.slice(0, 20))
+      .setStyle(ButtonStyle.Success)
+      .setDisabled(item.maxStock > 0 && item.stock <= 0)
+  );
 
-  for (const item of items) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`shop_buy:${item.itemId}`)
-        .setLabel(item.name.slice(0, 20)) // avoid overly long labels
-        .setStyle(ButtonStyle.Success)
-        .setDisabled(item.maxStock > 0 && item.stock <= 0)
+  // Split into multiple rows if needed (Discord max = 5 buttons per row)
+  const rows = [];
+  for (let i = 0; i < buttons.length; i += 5) {
+    rows.push(
+      new ActionRowBuilder().addComponents(buttons.slice(i, i + 5))
     );
   }
 
-  return row;
+  return rows;
 }
 
 async function fetchPage(category, page) {
-  const query = {
-    purchasable: true
-  };
+  const query = { purchasable: true };
 
   if (category !== 'all') {
     query.category = category;
@@ -162,7 +169,7 @@ module.exports = {
     .setDescription('Browse and buy items from the advanced chip shop.')
     .setDMPermission(false),
 
-  category: 'Economy', // for your help command
+  category: 'Economy',
 
   async execute(interaction) {
     const userId = interaction.user.id;
@@ -174,11 +181,11 @@ module.exports = {
 
     const navRow = buildNavButtons(userId, category, safePage, maxPages);
     const catRow = buildCategorySelect(category);
-    const buyRow = buildBuyButtons(items);
+    const buyRows = buildBuyButtons(items); // Now an array of rows, not a single row
 
     await interaction.reply({
       embeds: [embed],
-      components: [navRow, catRow, buyRow],
+      components: [navRow, catRow, ...buyRows],
       ephemeral: false
     });
   }
