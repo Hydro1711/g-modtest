@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, Colors } = require("discord.js");
 const User = require("../../models/user");
 const getOrCreateUser = require('../../Functions/getOrCreateUser');
-const isCasinoCommandAllowed = require("../../utils/isCasinoCommandAllowed");
+const isCasinoCommandAllowed = require('../../Functions/isCasinoCommandAllowed');
 
 const MIN_BET = 10;
 const MAX_BET = 50000;
