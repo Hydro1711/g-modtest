@@ -37,7 +37,7 @@ export async function execute(interaction) {
     for (const role of roles) {
       const members = role.members.filter((m) => !assignedMembers.has(m.id));
       members.forEach((m) => assignedMembers.add(m.id));
-      if (members.size > 0) rolesMap.set(role, members); // store role object
+      if (members.size > 0) rolesMap.set(role, members);
     }
 
     // Build description
@@ -46,21 +46,30 @@ export async function execute(interaction) {
     for (const [role, members] of rolesMap) {
       description += `<@&${role.id}>\n`; // clickable role
 
-      // Sort members by highest role
       const sortedMembers = members.sort(
         (a, b) => b.roles.highest.position - a.roles.highest.position
       );
 
       sortedMembers.forEach((m) => {
         const status = m.presence?.status || "offline";
+
+        // ⭐ Updated emojis here ⭐
         let emoji;
         switch (status) {
-          case "online": emoji = "<:online:1434616565294170192>"; break;
-          case "idle": emoji = "<:idle:1434616562483990629>"; break;
-          case "dnd": emoji = "<:dnd:1434616559405633700>"; break;
-          default: emoji = "<:offline:1434616563830362232>";
+          case "online":
+            emoji = "<:Online:1424912330621321256>";
+            break;
+          case "idle":
+            emoji = "<:Idle:1424912473307349043>";
+            break;
+          case "dnd":
+            emoji = "<:Dnd:1424912435747491931>";
+            break;
+          default:
+            emoji = "<:Offline:1424912390960582796>";
         }
-        description += `${emoji} ${m}\n`; // clickable user mention
+
+        description += `${emoji} ${m}\n`;
       });
 
       description += "\n";
@@ -91,4 +100,3 @@ export async function execute(interaction) {
     }
   }
 }
-
