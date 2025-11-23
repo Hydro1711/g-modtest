@@ -10,7 +10,7 @@ const { createCanvas, loadImage } = require("canvas");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("quote")
-    .setDescription("Create a Heist-style quote card (reply to a message!)"),
+    .setDescription("Create a quote card (reply to a message!)"),
 
   async execute(interaction) {
     // Must be replying to a message
