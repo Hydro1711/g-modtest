@@ -1,3 +1,5 @@
+/* ----------- DEPENDENCIES ----------- */
+
 const {
   SlashCommandBuilder,
   ContextMenuCommandBuilder,
@@ -7,207 +9,196 @@ const {
   ButtonStyle,
   ActionRowBuilder,
 } = require("discord.js");
+
 const { createCanvas, loadImage } = require("canvas");
 
-// ===========================
-// COMMAND 1 — /quotemessage
-// ===========================
-const slash = new SlashCommandBuilder()
-  .setName("quotemessage")
-  .setDescription("Heist-style quote generator. Use Apps → Quote Message on a message.");
+/* ---------- SLASH COMMAND (/quotemessage) ----------- */
 
-// ===========================
-// COMMAND 2 — Apps → Quote Message
-// ===========================
-const context = new ContextMenuCommandBuilder()
-  .setName("Quote Message")
-  .setType(ApplicationCommandType.Message);
+const slashCommand = {
+  data: new SlashCommandBuilder()
+    .setName("quotemessage")
+    .setDescription("Create a Heist-style quote image (use Apps → Quote Message)."),
 
-// ===========================
-// TEXT WRAP HELPER
-// ===========================
-function wrap(ctx, text, max) {
-  const words = text.split(/\s+/);
-  const lines = [];
-  let cur = "";
-  for (const w of words) {
-    const test = cur ? cur + " " + w : w;
-    if (ctx.measureText(test).width > max && cur) {
-      lines.push(cur);
-      cur = w;
-    } else cur = test;
+  async execute(interaction) {
+    return interaction.reply({
+      content: "Use **Apps → Quote Message** on a message you want to quote.\nDiscord does not send replied messages to slash commands.",
+      ephemeral: true,
+    });
   }
-  if (cur) lines.push(cur);
-  return lines;
+};
+
+/* ------------- CONTEXT MENU (Apps → Quote Message) ---------- */
+
+const contextCommand = {
+  data: new ContextMenuCommandBuilder()
+    .setName("Quote Message")
+    .setType(ApplicationCommandType.Message),
+
+  async execute(interaction) {
+    if (!interaction.isMessageContextMenuCommand()) return;
+
+    const targetMessage = interaction.targetMessage;
+    const targetUser = targetMessage.author;
+
+    const state = {
+      id: Date.now().toString(),
+      user: targetUser,
+      text: targetMessage.content || "",
+      theme: "blue",
+    };
+
+    const attachment = await renderQuoteImage(state, interaction.client.user);
+    const replyMessage = await interaction.reply({
+      files: [attachment],
+      components: buildComponents(state),
+      fetchReply: true,
+      allowedMentions: { parse: [] },
+    });
+
+    const collector = replyMessage.createMessageComponentCollector({
+      time: 120000,
+    });
+
+    collector.on("collect", async (btn) => {
+      if (btn.user.id !== interaction.user.id) {
+        return btn.reply({
+          content: "Only the creator can use these buttons.",
+          ephemeral: true,
+        });
+      }
+
+      const [prefix, action, id] = btn.customId.split("_");
+      if (prefix !== "quote" || id !== state.id) return;
+
+      if (action === "trash") {
+        await btn.deferUpdate();
+        collector.stop("deleted");
+        return replyMessage.delete().catch(() => {});
+      }
+
+      if (action === "refresh") {
+        const updated = await renderQuoteImage(state, interaction.client.user);
+        return btn.update({
+          files: [updated],
+          components: buildComponents(state),
+        });
+      }
+
+      if (action === "blue") state.theme = "blue";
+      if (action === "glitch") state.theme = "glitch";
+
+      return btn.update({
+        files: [await renderQuoteImage(state, interaction.client.user)],
+        components: buildComponents(state),
+      });
+    });
+
+    collector.on("end", () => {
+      replyMessage.edit({ components: [] }).catch(() => {});
+    });
+  }
+};
+
+/* ----------- BUTTON UI ---------- */
+
+function buildComponents(state) {
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`quote_blue_${state.id}`)
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("<:botsun:1442266721397506169>"),
+
+    new ButtonBuilder()
+      .setCustomId(`quote_glitch_${state.id}`)
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("<:glitch:1442266700153360466>")
+  );
+
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`quote_refresh_${state.id}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("<:refresh:1442266767564210256>"),
+
+    new ButtonBuilder()
+      .setCustomId(`quote_new_${state.id}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("<:newproduct:1442268874107257025>"),
+
+    new ButtonBuilder()
+      .setCustomId(`quote_gif_${state.id}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("<:gifsquare:1442266831388672162>"),
+
+    new ButtonBuilder()
+      .setCustomId(`quote_trash_${state.id}`)
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji("<:trash:1442266748924723274>")
+  );
+
+  return [row1, row2];
 }
 
-// ===========================
-// BUTTON UI
-// ===========================
-function buildUI(state) {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`quote_brightness_${state.id}`).setEmoji("<:brightnesscontrol:1442266667508830350>").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`quote_contrast_${state.id}`).setEmoji("<:contrast:1442266851408089250>").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`quote_dew_${state.id}`).setEmoji("<:dewpoint:1442266810660683939>").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`quote_blue_${state.id}`).setEmoji("<:botsun:1442266721397506169>").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`quote_glitch_${state.id}`).setEmoji("<:glitch:1442266700153360466>").setStyle(ButtonStyle.Primary)
-    ),
+/* ---------- QUOTE IMAGE RENDER ----------- */
 
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`quote_gif_${state.id}`).setEmoji("<:gifsquare:1442266831388672162>").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`quote_new_${state.id}`).setEmoji("<:newproduct:1442268874107257025>").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`quote_refresh_${state.id}`).setEmoji("<:refresh:1442266767564210256>").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`quote_trash_${state.id}`).setEmoji("<:trash:1442266748924723274>").setStyle(ButtonStyle.Danger)
-    )
-  ];
-}
+async function renderQuoteImage(state, botUser) {
+  const width = 900;
+  const height = 1200;
 
-// ===========================
-// RENDER IMAGE
-// ===========================
-async function render(state, botUser) {
-  const W = 900, H = 1200;
-  const canvas = createCanvas(W, H);
+  const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  // Avatar BG
+  // Avatar background
+  let avatar;
   try {
-    const av = await loadImage(state.user.displayAvatarURL({ extension: "png", size: 512 }));
-    const scale = Math.max(W / av.width, H / av.height);
-    ctx.drawImage(av, W/2 - av.width*scale/2, H/2 - av.height*scale/2, av.width*scale, av.height*scale);
-  } catch {
-    ctx.fillStyle = "#000516";
-    ctx.fillRect(0,0,W,H);
+    avatar = await loadImage(
+      state.user.displayAvatarURL({ extension: "png", size: 512 })
+    );
+  } catch {}
+
+  if (avatar) {
+    const scale = Math.max(width / avatar.width, height / avatar.height);
+    const x = width / 2 - (avatar.width * scale) / 2;
+    const y = height / 2 - (avatar.height * scale) / 2;
+    ctx.drawImage(avatar, x, y, avatar.width * scale, avatar.height * scale);
   }
 
-  // Themes
+  // Blue or glitch theme
   if (state.theme === "glitch") {
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = "rgba(0,255,255,0.2)";
-    ctx.fillRect(0,H*0.25,W,20);
+    ctx.fillRect(0, height * 0.25, width, 25);
     ctx.fillStyle = "rgba(255,0,255,0.2)";
-    ctx.fillRect(0,H*0.50,W,20);
-    ctx.fillStyle = "rgba(255,255,0,0.15)";
-    ctx.fillRect(0,H*0.75,W,20);
+    ctx.fillRect(0, height * 0.5, width, 25);
+    ctx.fillStyle = "rgba(255,255,0,0.2)";
+    ctx.fillRect(0, height * 0.75, width, 25);
   } else {
-    ctx.fillStyle = "rgba(0,15,40,0.65)";
-    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = "rgba(10,30,80,0.6)";
+    ctx.fillRect(0, 0, width, height);
   }
 
-  // Text
-  let txt = state.text || "No message content.";
-  if (txt.length > 300) txt = txt.slice(0,297)+"...";
-
+  // Quote text
   ctx.fillStyle = "#fff";
   ctx.textAlign = "center";
-  let fontSize = txt.length < 40 ? 64 : txt.length > 140 ? 40 : 52;
-  ctx.font = `${fontSize}px sans-serif`;
+  ctx.font = "56px sans-serif";
+  ctx.fillText(state.text, width / 2, height / 2);
 
-  const lines = wrap(ctx, txt, W * 0.75);
-  const lh = fontSize * 1.25;
-  const totalH = lines.length * lh;
-  let y = H/2 - totalH/2;
-
-  for (const l of lines) {
-    ctx.fillText(l, W/2, y);
-    y += lh;
-  }
-
-  ctx.fillStyle = "#d6e6ff";
-  ctx.font = `${Math.floor(fontSize*0.6)}px sans-serif`;
-  ctx.fillText(`– ${state.user.username}`, W/2, y + lh*0.6);
+  // Author
+  ctx.font = "38px sans-serif";
+  ctx.fillText(`– ${state.user.username}`, width / 2, height * 0.62);
 
   // Watermark
   ctx.textAlign = "right";
-  ctx.font = "26px sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.fillText(botUser.username, W-30, H-40);
+  ctx.font = "28px sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.fillText(botUser.username, width - 40, height - 40);
 
-  return new AttachmentBuilder(canvas.toBuffer(), { name: "quote.png" });
+  return new AttachmentBuilder(canvas.toBuffer("image/png"), {
+    name: "quote.png",
+  });
 }
 
-// ===============================
-// EXPORT FOR COMMAND HANDLER
-// ===============================
-module.exports = {
-  // Your handler loads ONE command per file,
-  // so we expose .data as slash by default.
-  data: slash,
+/* ----------- EXPORT BOTH AS SEPARATE COMMANDS ----------- */
 
-  // But we ALSO expose context so handler can auto-load it as well.
-  context,
-
-  async execute(interaction) {
-    // Slash → /quotemessage
-    if (interaction.isChatInputCommand && interaction.isChatInputCommand()) {
-      return interaction.reply({
-        content: "Use **Apps → Quote Message** on a message to generate the quote.",
-        ephemeral: true,
-      });
-    }
-
-    // Apps → Quote Message
-    if (interaction.isMessageContextMenuCommand && interaction.isMessageContextMenuCommand()) {
-      if (interaction.commandName !== "Quote Message") return;
-
-      const msg = interaction.targetMessage;
-      const user = msg.author;
-
-      const state = {
-        id: Date.now().toString(),
-        text: msg.content || "",
-        user,
-        theme: "blue",
-      };
-
-      const file = await render(state, interaction.client.user);
-
-      const sent = await interaction.reply({
-        files: [file],
-        components: buildUI(state),
-        fetchReply: true
-      });
-
-      const col = sent.createMessageComponentCollector({ time: 120000 });
-
-      col.on("collect", async btn => {
-        if (btn.user.id !== interaction.user.id)
-          return btn.reply({ content: "Not your quote.", ephemeral: true });
-
-        const [_, action, id] = btn.customId.split("_");
-        if (id !== state.id) return;
-
-        if (action === "trash") {
-          await sent.delete().catch(()=>{});
-          return;
-        }
-
-        if (action === "gif") {
-          return btn.reply({ content: "GIF mode is not implemented yet.", ephemeral: true });
-        }
-
-        if (action === "new") {
-          return btn.reply({ content: "Badge button added ✔️", ephemeral: true });
-        }
-
-        if (action === "refresh") {
-          const newFile = await render(state, interaction.client.user);
-          return btn.update({ files: [newFile], components: buildUI(state) });
-        }
-
-        if (action === "blue" || action === "glitch") {
-          state.theme = action;
-        }
-
-        const newFile = await render(state, interaction.client.user);
-        return btn.update({ files: [newFile], components: buildUI(state) });
-      });
-
-      col.on("end", async () => {
-        try { await sent.edit({ components: [] }); } catch {}
-      });
-    }
-  }
-};
+module.exports = { slashCommand, contextCommand };
