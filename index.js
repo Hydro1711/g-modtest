@@ -7,11 +7,13 @@ import express from "express";
 import fs from "fs";
 import fetch from "node-fetch";
 
+// LOAD CONFIG
 const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
 
-// ⭐ ADD YOUR PREFIX HERE
+// ⭐ PREFIX
 const PREFIX = "g!";
 
+// INTENTS
 const {
   Guilds,
   GuildMembers,
@@ -22,9 +24,16 @@ const {
   GuildModeration,
 } = GatewayIntentBits;
 
-const { User, Message, GuildMember, ThreadMember, Channel, MessageReaction } =
-  Partials;
+const {
+  User,
+  Message,
+  GuildMember,
+  ThreadMember,
+  Channel,
+  MessageReaction,
+} = Partials;
 
+// CLIENT
 const client = new Client({
   intents: [
     Guilds,
@@ -36,46 +45,33 @@ const client = new Client({
     GuildMessageReactions,
     GatewayIntentBits.GuildPresences,
   ],
-  partials: [
-    User,
-    Message,
-    GuildMember,
-    ThreadMember,
-    Channel,
-    MessageReaction,
-  ],
+  partials: [User, Message, GuildMember, ThreadMember, Channel, MessageReaction],
 });
 
-// Load client properties
+// Collections
 client.config = config;
 client.commands = new Collection();
 client.subCommands = new Collection();
 client.events = new Collection();
 client.guildConfig = new Collection();
-client.prefixCommands = new Collection(); // ⭐ PREFIX COMMAND COLLECTION
+client.prefixCommands = new Collection(); // ⭐ PREFIX COMMANDS
 
 // ---------------------------------------------------------
 // ⭐ PREFIX HANDLER
 // ---------------------------------------------------------
 client.on("messageCreate", async (message) => {
-  if (
-    message.author.bot ||
-    !message.guild ||
-    !message.content.startsWith(PREFIX)
-  )
-    return;
+  if (!message.guild || message.author.bot) return;
+  if (!message.content.startsWith(PREFIX)) return;
 
   const args = message.content.slice(PREFIX.length).trim().split(/ +/g);
   const cmdName = args.shift().toLowerCase();
 
-  const cmd =
-    client.prefixCommands.get(cmdName) ||
-    client.prefixCommands.get(args[0]); // support alias
+  const cmd = client.prefixCommands.get(cmdName);
 
   if (!cmd) return;
 
   try {
-    await cmd.execute(message, args, client);
+    await cmd.execute(client, message, args);
   } catch (err) {
     console.error("Prefix command error:", err);
     message.reply("❌ Command error.");
@@ -83,7 +79,7 @@ client.on("messageCreate", async (message) => {
 });
 
 // ---------------------------------------------------------
-// Connect to MongoDB
+// MONGODB
 // ---------------------------------------------------------
 const mongoURL = process.env.MONGODB_URL;
 if (!mongoURL) {
@@ -97,34 +93,35 @@ mongoose
   .catch((err) => console.error("❌ MongoDB error:", err));
 
 // ---------------------------------------------------------
-// Load handlers
+// LOAD HANDLERS
 // ---------------------------------------------------------
 import { loadEvents } from "./Handlers/eventHandler.js";
 import { loadCommands } from "./Handlers/commandHandler.js";
 import { loadConfig } from "./Functions/configLoader.js";
-import { loadPrefixCommands } from "./Handlers/prefixHandler.js"; // ⭐ ADD THIS
+import { loadPrefixCommands } from "./Handlers/prefixHandler.js"; // ⭐ REQUIRED
 
-
-
+// Load events + config
 loadEvents(client);
 loadConfig(client);
 
-client.setMaxListeners(20);
-
 // ---------------------------------------------------------
-// Bot Ready
+// READY
 // ---------------------------------------------------------
 client.once("ready", async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 
+  // Load slash commands
   await loadCommands(client);
+
+  // ⭐ LOAD PREFIX COMMANDS
+  await loadPrefixCommands(client);
 
   client.user.setActivity(`with ${client.guilds.cache.size} guild(s)`);
   console.log("✅ Bot is fully ready and intents/partials are set!");
 });
 
 // ---------------------------------------------------------
-// Login
+// LOGIN
 // ---------------------------------------------------------
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
@@ -135,7 +132,7 @@ if (!token) {
 client.login(token).catch((err) => console.error("❌ Login failed:", err));
 
 // ---------------------------------------------------------
-// Web server
+// WEB SERVER (RENDER KEEPALIVE)
 // ---------------------------------------------------------
 const app = express();
 app.get("/", (req, res) => res.send("✅ Discord bot is running!"));
