@@ -1,8 +1,8 @@
 const {
   AttachmentBuilder,
+  ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle,
-  ActionRowBuilder
+  ButtonStyle
 } = require("discord.js");
 
 const { createCanvas, loadImage } = require("canvas");
@@ -10,10 +10,10 @@ const { createCanvas, loadImage } = require("canvas");
 module.exports = {
   name: "quote",
   aliases: ["quotemessage", "q"],
-  description: "Create a Heist-style quote from a replied message",
+  description: "Create a Heist-style quote using a replied message",
 
-  async execute(client, message, args) {
-    // Must reply
+  async execute(message, args, client) {
+    // Must be a reply
     if (!message.reference)
       return message.reply("❌ You must **reply** to a message to quote it.");
 
@@ -22,23 +22,24 @@ module.exports = {
     );
 
     const targetUser = referenced.author;
-    const targetText = referenced.content || "No content";
+    const targetText = referenced.content || "No content.";
 
-    // State for buttons
+    // State for theme & buttons
     const state = {
       id: Date.now().toString(),
       theme: "blue",
       user: targetUser,
-      text: targetText,
+      text: targetText
     };
 
-    async function render() {
+    async function renderQuote() {
       const width = 900;
       const height = 1200;
+
       const canvas = createCanvas(width, height);
       const ctx = canvas.getContext("2d");
 
-      // Background avatar
+      // Load avatar as background
       let avatar;
       try {
         avatar = await loadImage(
@@ -47,35 +48,38 @@ module.exports = {
       } catch {}
 
       if (avatar) {
-        const scale = Math.max(
-          width / avatar.width,
-          height / avatar.height
+        const scale = Math.max(width / avatar.width, height / avatar.height);
+        ctx.drawImage(
+          avatar,
+          width / 2 - (avatar.width * scale) / 2,
+          height / 2 - (avatar.height * scale) / 2,
+          avatar.width * scale,
+          avatar.height * scale
         );
-        const x = width / 2 - (avatar.width * scale) / 2;
-        const y = height / 2 - (avatar.height * scale) / 2;
-        ctx.drawImage(avatar, x, y, avatar.width * scale, avatar.height * scale);
       } else {
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, width, height);
       }
 
-      // Overlay / theme
+      // Overlay theme
       if (state.theme === "glitch") {
         ctx.fillStyle = "rgba(0,0,0,0.55)";
         ctx.fillRect(0, 0, width, height);
 
         ctx.fillStyle = "rgba(0,255,255,0.25)";
         ctx.fillRect(0, height * 0.25, width, 20);
+
         ctx.fillStyle = "rgba(255,0,255,0.25)";
         ctx.fillRect(0, height * 0.5, width, 20);
-        ctx.fillStyle = "rgba(255,255,0,0.2)";
+
+        ctx.fillStyle = "rgba(255,255,0,0.25)";
         ctx.fillRect(0, height * 0.75, width, 20);
       } else {
-        ctx.fillStyle = "rgba(5,15,50,0.7)";
+        ctx.fillStyle = "rgba(5, 15, 50, 0.70)";
         ctx.fillRect(0, 0, width, height);
       }
 
-      // Text
+      // Quote text
       ctx.fillStyle = "#fff";
       ctx.textAlign = "center";
 
@@ -101,9 +105,7 @@ module.exports = {
           if (ctx.measureText(test).width > maxWidth) {
             lines.push(line);
             line = w;
-          } else {
-            line = test;
-          }
+          } else line = test;
         }
         if (line) lines.push(line);
         return lines;
@@ -119,7 +121,7 @@ module.exports = {
         y += lineHeight;
       }
 
-      // Author
+      // Username
       ctx.font = `${Math.floor(fontSize * 0.7)}px sans-serif`;
       ctx.fillStyle = "#dfe7ff";
       ctx.fillText(`– ${targetUser.username}`, width / 2, y + 40);
@@ -134,26 +136,29 @@ module.exports = {
       ctx.fillText(client.user.username, width - 40, height - 40);
 
       return new AttachmentBuilder(canvas.toBuffer("image/png"), {
-        name: "quote.png",
+        name: "quote.png"
       });
     }
 
-    const attachment = await render();
+    const image = await renderQuote();
 
     // Buttons
-    const row1 = new ActionRowBuilder().addComponents(
+    const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`blue_${state.id}`)
         .setStyle(ButtonStyle.Primary)
         .setEmoji("<:botsun:1442266721397506169>"),
+
       new ButtonBuilder()
         .setCustomId(`glitch_${state.id}`)
         .setStyle(ButtonStyle.Primary)
         .setEmoji("<:glitch:1442266700153360466>"),
+
       new ButtonBuilder()
         .setCustomId(`refresh_${state.id}`)
         .setStyle(ButtonStyle.Secondary)
         .setEmoji("<:refresh:1442266767564210256>"),
+
       new ButtonBuilder()
         .setCustomId(`trash_${state.id}`)
         .setStyle(ButtonStyle.Danger)
@@ -161,19 +166,18 @@ module.exports = {
     );
 
     const sent = await message.reply({
-      files: [attachment],
-      components: [row1],
+      files: [image],
+      components: [row]
     });
 
-    const collector = sent.createMessageComponentCollector({
-      time: 120000,
-    });
+    // Collector
+    const collector = sent.createMessageComponentCollector({ time: 120000 });
 
     collector.on("collect", async (btn) => {
       if (btn.user.id !== message.author.id)
         return btn.reply({
           content: "❌ Only the quote creator can use these buttons.",
-          ephemeral: true,
+          ephemeral: true
         });
 
       const [action, id] = btn.customId.split("_");
@@ -187,18 +191,13 @@ module.exports = {
 
       if (action === "blue") state.theme = "blue";
       if (action === "glitch") state.theme = "glitch";
-      if (action === "refresh") state.theme = state.theme;
 
-      const newImage = await render();
-
-      return btn.update({
-        files: [newImage],
-        components: [row1],
-      });
+      const updated = await renderQuote();
+      return btn.update({ files: [updated], components: [row] });
     });
 
     collector.on("end", () => {
       sent.edit({ components: [] }).catch(() => {});
     });
-  },
+  }
 };
