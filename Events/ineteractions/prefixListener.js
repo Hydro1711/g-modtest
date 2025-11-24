@@ -1,10 +1,8 @@
 module.exports = {
   name: "messageCreate",
-  /**
-   * @param {import('discord.js').Message} message
-   */
+
   async execute(message) {
-    const PREFIX_REGEX = /^(g!|G!)\s?/; // supports "taxx!" and "Taxx!", with optional space
+    const PREFIX_REGEX = /^(g!|G!)\s?/; 
 
     try {
       if (message.author.bot || !message.guild) return;
@@ -15,9 +13,9 @@ module.exports = {
         .slice(message.content.match(PREFIX_REGEX)[0].length)
         .trim()
         .split(/\s+/)
-        .filter(Boolean); // <-- remove empty strings to avoid issues
+        .filter(Boolean); 
 
-      const commandName = (args.shift() || "").toLowerCase(); // <-- ensures string, even if empty
+      const commandName = (args.shift() || "").toLowerCase();
 
       console.log(`📌 Prefix message received: ${message.content}`);
       console.log(`🔹 Detected command: ${commandName}`);
