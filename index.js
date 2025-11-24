@@ -9,9 +9,6 @@ import fetch from "node-fetch";
 
 const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
 
-// ⭐ PREFIX
-const PREFIX = "g!";
-
 const {
   Guilds,
   GuildMembers,
@@ -52,33 +49,9 @@ client.commands = new Collection();
 client.subCommands = new Collection();
 client.events = new Collection();
 client.guildConfig = new Collection();
-client.prefixCommands = new Collection(); // ⭐ prefix commands
 
-// ⭐ PREFIX HANDLER
-client.on("messageCreate", async (message) => {
-  if (
-    message.author.bot ||
-    !message.guild ||
-    !message.content.startsWith(PREFIX)
-  )
-    return;
-
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/g);
-  const cmdName = args.shift().toLowerCase();
-
-  const cmd =
-    client.prefixCommands.get(cmdName) ||
-    client.prefixCommands.get(args[0]);
-
-  if (!cmd) return;
-
-  try {
-    await cmd.execute(message, args, client);
-  } catch (err) {
-    console.error("Prefix command error:", err);
-    message.reply("❌ Command error.");
-  }
-});
+// ⭐ NEW (matches other system)
+client.prefixCommands = new Map();
 
 // MongoDB
 const mongoURL = process.env.MONGODB_URL;
@@ -92,29 +65,33 @@ mongoose
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => console.error("❌ MongoDB error:", err));
 
-// Handlers
+// --------------------
+// Load Handlers
+// --------------------
 import { loadEvents } from "./Handlers/eventHandler.js";
-import { loadCommands } from "./Handlers/commandHandler.js";
+import { loadCommands } from "./Handlers/commandHandler.js"; // loads slash + prefix
 import { loadConfig } from "./Functions/configLoader.js";
-import { loadPrefixCommands } from "./Handlers/prefixHandler.js"; // ⭐ REQUIRED
 
 loadEvents(client);
 loadConfig(client);
 
 client.setMaxListeners(20);
 
+// --------------------
 // ⭐ READY
+// --------------------
 client.once("ready", async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 
-  await loadCommands(client);          // slash + context menu
-  await loadPrefixCommands(client);    // ⭐ PREFIX NOW LOADS!
+  await loadCommands(client);       // this loads prefix + slash (from his handler)
 
   client.user.setActivity(`with ${client.guilds.cache.size} guild(s)`);
   console.log("✅ Bot is fully ready and intents/partials are set!");
 });
 
+// --------------------
 // Login
+// --------------------
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
   console.error("❌ No Discord token found!");
@@ -123,7 +100,9 @@ if (!token) {
 
 client.login(token).catch((err) => console.error("❌ Login failed:", err));
 
-// Web server (Render keep-alive)
+// --------------------
+// Keep-alive
+// --------------------
 const app = express();
 app.get("/", (req, res) => res.send("✅ Discord bot is running!"));
 
