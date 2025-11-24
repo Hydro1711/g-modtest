@@ -101,6 +101,42 @@ module.exports = {
       const allWarns = await Warns.find({ guildId: interaction.guild.id, userId: member.id });
       const warnCount = allWarns.length;
 
+      // -----------------------------------------------------------
+      // ------------------- AUTO PUNISHMENTS ----------------------
+      // -----------------------------------------------------------
+
+      try {
+        if (warnCount === 3) {
+          const ms = 24 * 60 * 60 * 1000; // 24 hours
+          await member.timeout(ms, "Reached 3 warnings (auto punishment)");
+
+          await interaction.followUp({
+            content: `⏰ **${member.user.tag}** has reached **3 warnings** and has been **timed out for 24 hours**.`
+          });
+        }
+
+        if (warnCount === 5) {
+          await member.kick("Reached 5 warnings (auto kick)");
+
+          await interaction.followUp({
+            content: `👢 **${member.user.tag}** has reached **5 warnings** and was **kicked** from the server.`
+          });
+        }
+
+        if (warnCount === 7) {
+          await member.ban({ reason: "Reached 7 warnings (auto ban)" });
+
+          await interaction.followUp({
+            content: `⛔ **${member.user.tag}** has reached **7 warnings** and was **permanently banned**.`
+          });
+        }
+      } catch (err) {
+        console.log(err);
+        await interaction.followUp("⚠️ Failed to apply automatic punishment. Missing permissions?");
+      }
+
+      // ------------------------------------------------------------
+
       const replyEmbed = new EmbedBuilder()
         .setTitle("User Warned")
         .setDescription(`${member} has been warned.`)
