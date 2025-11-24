@@ -7,13 +7,11 @@ import express from "express";
 import fs from "fs";
 import fetch from "node-fetch";
 
-// LOAD CONFIG
 const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
 
 // ⭐ PREFIX
 const PREFIX = "g!";
 
-// INTENTS
 const {
   Guilds,
   GuildMembers,
@@ -24,16 +22,9 @@ const {
   GuildModeration,
 } = GatewayIntentBits;
 
-const {
-  User,
-  Message,
-  GuildMember,
-  ThreadMember,
-  Channel,
-  MessageReaction,
-} = Partials;
+const { User, Message, GuildMember, ThreadMember, Channel, MessageReaction } =
+  Partials;
 
-// CLIENT
 const client = new Client({
   intents: [
     Guilds,
@@ -45,7 +36,14 @@ const client = new Client({
     GuildMessageReactions,
     GatewayIntentBits.GuildPresences,
   ],
-  partials: [User, Message, GuildMember, ThreadMember, Channel, MessageReaction],
+  partials: [
+    User,
+    Message,
+    GuildMember,
+    ThreadMember,
+    Channel,
+    MessageReaction,
+  ],
 });
 
 // Collections
@@ -54,33 +52,35 @@ client.commands = new Collection();
 client.subCommands = new Collection();
 client.events = new Collection();
 client.guildConfig = new Collection();
-client.prefixCommands = new Collection(); // ⭐ PREFIX COMMANDS
+client.prefixCommands = new Collection(); // ⭐ prefix commands
 
-// ---------------------------------------------------------
 // ⭐ PREFIX HANDLER
-// ---------------------------------------------------------
 client.on("messageCreate", async (message) => {
-  if (!message.guild || message.author.bot) return;
-  if (!message.content.startsWith(PREFIX)) return;
+  if (
+    message.author.bot ||
+    !message.guild ||
+    !message.content.startsWith(PREFIX)
+  )
+    return;
 
   const args = message.content.slice(PREFIX.length).trim().split(/ +/g);
   const cmdName = args.shift().toLowerCase();
 
-  const cmd = client.prefixCommands.get(cmdName);
+  const cmd =
+    client.prefixCommands.get(cmdName) ||
+    client.prefixCommands.get(args[0]);
 
   if (!cmd) return;
 
   try {
-    await cmd.execute(client, message, args);
+    await cmd.execute(message, args, client);
   } catch (err) {
     console.error("Prefix command error:", err);
     message.reply("❌ Command error.");
   }
 });
 
-// ---------------------------------------------------------
-// MONGODB
-// ---------------------------------------------------------
+// MongoDB
 const mongoURL = process.env.MONGODB_URL;
 if (!mongoURL) {
   console.error("❌ No MongoDB URL found!");
@@ -92,37 +92,29 @@ mongoose
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => console.error("❌ MongoDB error:", err));
 
-// ---------------------------------------------------------
-// LOAD HANDLERS
-// ---------------------------------------------------------
+// Handlers
 import { loadEvents } from "./Handlers/eventHandler.js";
 import { loadCommands } from "./Handlers/commandHandler.js";
 import { loadConfig } from "./Functions/configLoader.js";
 import { loadPrefixCommands } from "./Handlers/prefixHandler.js"; // ⭐ REQUIRED
 
-// Load events + config
 loadEvents(client);
 loadConfig(client);
 
-// ---------------------------------------------------------
-// READY
-// ---------------------------------------------------------
+client.setMaxListeners(20);
+
+// ⭐ READY
 client.once("ready", async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 
-  // Load slash commands
-  await loadCommands(client);
-
-  // ⭐ LOAD PREFIX COMMANDS
-  await loadPrefixCommands(client);
+  await loadCommands(client);          // slash + context menu
+  await loadPrefixCommands(client);    // ⭐ PREFIX NOW LOADS!
 
   client.user.setActivity(`with ${client.guilds.cache.size} guild(s)`);
   console.log("✅ Bot is fully ready and intents/partials are set!");
 });
 
-// ---------------------------------------------------------
-// LOGIN
-// ---------------------------------------------------------
+// Login
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
   console.error("❌ No Discord token found!");
@@ -131,9 +123,7 @@ if (!token) {
 
 client.login(token).catch((err) => console.error("❌ Login failed:", err));
 
-// ---------------------------------------------------------
-// WEB SERVER (RENDER KEEPALIVE)
-// ---------------------------------------------------------
+// Web server (Render keep-alive)
 const app = express();
 app.get("/", (req, res) => res.send("✅ Discord bot is running!"));
 
