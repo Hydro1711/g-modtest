@@ -102,6 +102,9 @@ mongoose
 import { loadEvents } from "./Handlers/eventHandler.js";
 import { loadCommands } from "./Handlers/commandHandler.js";
 import { loadConfig } from "./Functions/configLoader.js";
+import { loadPrefixCommands } from "./Handlers/prefixHandler.js"; // ⭐ ADD THIS
+
+
 
 loadEvents(client);
 loadConfig(client);
