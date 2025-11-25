@@ -7,4 +7,6 @@ const AfkSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 });
 
+AfkSchema.index({ userId: 1, guildId: 1 }, { unique: true });
+
 module.exports = mongoose.model("Afk", AfkSchema);
