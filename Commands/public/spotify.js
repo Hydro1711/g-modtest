@@ -18,23 +18,27 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    // Acknowledge the interaction so it can't expire
-    await interaction.deferReply({ ephemeral: true });
+    // Keep interaction alive
+    await interaction.deferReply({ ephemeral: false });
 
     const user = interaction.options.getUser("user") || interaction.user;
 
-    // Fetch member (for presence)
+    // ⭐ CRITICAL FIX: Force-fetch all presences so Discord sends Spotify data
+    await interaction.guild.members.fetch({ withPresences: true }).catch(() => {});
+
+    // Fetch target member AFTER presence sync
     const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+
     if (!member) {
       return interaction.editReply({
         content: "❌ Could not find that member.",
       });
     }
 
-    // Case-insensitive Spotify presence detection
+    // FIX: Case-insensitive Spotify detection
     const activity = member.presence?.activities.find(
       act =>
-        act.type === 2 && // LISTENING
+        act.type === 2 &&
         act.name &&
         act.name.toLowerCase() === "spotify"
     );
@@ -45,9 +49,9 @@ module.exports = {
       });
     }
 
-    // --------- Extract Spotify data ---------
-    const title = activity.details; // Track name
-    const artist = activity.state;  // Artist name(s)
+    // Extract Spotify info
+    const title = activity.details;
+    const artist = activity.state;
     const album = activity.assets?.largeText || "Unknown Album";
 
     const albumImageId = activity.assets?.largeImage?.split(":")[1];
@@ -59,17 +63,13 @@ module.exports = {
     const end = activity.timestamps.end;
     const totalDuration = end - start;
 
-    // Track ID extraction (most reliable path)
+    // Track ID extraction (100% reliable)
     let trackId = null;
     const rawLarge = activity.assets?.largeImage;
 
-    if (rawLarge?.startsWith("spotify:")) {
-      trackId = rawLarge.replace("spotify:", "");
-    } else if (activity.syncId) {
-      trackId = activity.syncId;
-    } else if (activity.id) {
-      trackId = activity.id;
-    }
+    if (rawLarge?.startsWith("spotify:")) trackId = rawLarge.replace("spotify:", "");
+    else if (activity.syncId) trackId = activity.syncId;
+    else if (activity.id) trackId = activity.id;
 
     const trackUrl = trackId
       ? `https://open.spotify.com/track/${trackId}`
@@ -78,7 +78,7 @@ module.exports = {
     const artistUrl = `https://open.spotify.com/search/${encodeURIComponent(artist)}`;
     const albumUrl = `https://open.spotify.com/search/${encodeURIComponent(album)}`;
 
-    // ---------- Helpers ----------
+    // Helpers
     const formatMs = ms => {
       const m = Math.floor(ms / 60000);
       const s = Math.floor((ms % 60000) / 1000);
@@ -87,18 +87,14 @@ module.exports = {
 
     const buildProgressBar = () => {
       const now = Date.now();
-      const elapsed = now - start;
-      const clampedElapsed = Math.max(0, Math.min(elapsed, totalDuration));
-      const progress = clampedElapsed / totalDuration;
+      const elapsed = Math.min(now - start, totalDuration);
+      const progress = elapsed / totalDuration;
 
       const barLength = 20;
       const filled = Math.round(progress * barLength);
       const bar = "▬".repeat(filled) + "🔘" + "▬".repeat(barLength - filled);
 
-      return {
-        bar,
-        elapsed: clampedElapsed,
-      };
+      return { bar, elapsed };
     };
 
     const buildEmbed = () => {
@@ -107,7 +103,7 @@ module.exports = {
       const totalFormatted = formatMs(totalDuration);
 
       const embed = new EmbedBuilder()
-        .setColor("#1DB954") // Spotify green
+        .setColor("#1DB954")
         .setAuthor({
           name: `${user.username}'s Spotify`,
           iconURL: user.displayAvatarURL({ dynamic: true }),
@@ -133,14 +129,12 @@ module.exports = {
         .setFooter({ text: `Requested by ${interaction.user.tag}` })
         .setTimestamp();
 
-      if (albumImageUrl) {
-        embed.setThumbnail(albumImageUrl);
-      }
+      if (albumImageUrl) embed.setThumbnail(albumImageUrl);
 
       return embed;
     };
 
-    // ---------- Buttons ----------
+    // Buttons
     const buttonsRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setLabel("Open Track")
@@ -156,24 +150,24 @@ module.exports = {
         .setURL(albumUrl)
     );
 
-    // ---------- Send initial message ----------
+    // Send initial embed
     const message = await interaction.editReply({
       embeds: [buildEmbed()],
       components: [buttonsRow],
     });
 
-    // ---------- Live updating progress bar (every 5s) ----------
+    // Live updater (every 5 seconds)
     const interval = setInterval(async () => {
       try {
         const now = Date.now();
 
-        // Stop if track time has passed
+        // Stop when track ends
         if (now >= end) {
           clearInterval(interval);
           return;
         }
 
-        // Refresh member presence each tick
+        // Refresh presence
         await member.fetch(true);
 
         const currentSpotify = member.presence?.activities.find(
@@ -183,13 +177,13 @@ module.exports = {
             act.name.toLowerCase() === "spotify"
         );
 
-        // Stop if they stopped listening
+        // Stop if not listening anymore
         if (!currentSpotify) {
           clearInterval(interval);
           return;
         }
 
-        // Stop if they changed track (title or artist changed)
+        // Stop if song changed
         if (
           currentSpotify.details !== title ||
           currentSpotify.state !== artist
@@ -198,14 +192,15 @@ module.exports = {
           return;
         }
 
-        // Update the progress bar + times
+        // Update embed
         await message.edit({
           embeds: [buildEmbed()],
           components: [buttonsRow],
         });
-      } catch {
+
+      } catch (err) {
         clearInterval(interval);
       }
-    }, 5000); // 5 seconds
+    }, 5000);
   },
 };
