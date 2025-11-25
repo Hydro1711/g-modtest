@@ -6,7 +6,7 @@ module.exports = {
   async execute(message) {
     try {
       if (message.author.bot || !message.guild) return;
-      if (!message.content.toLowerCase().startsWith("taxx!lyrics")) return;
+      if (!message.content.toLowerCase().startsWith("mod!lyrics")) return;
       if (!message.reference) return message.reply("❌ Reply to a message to share lyrics!");
 
       const quotedMessage = await message.channel.messages.fetch(
@@ -204,3 +204,4 @@ drawShadow();
     }
   },
 };
+
