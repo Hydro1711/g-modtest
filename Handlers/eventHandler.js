@@ -2,8 +2,12 @@ async function loadEvents(client) {
   const { loadFiles } = require("../Functions/fileLoader");
   const ascii = require("ascii-table");
   const table = new ascii().setHeading("Events", "Status");
-  // === ADD THIS LINE AT THE TOP ===
-  client.setMaxListeners(20); // Increase max listeners to 20
+
+  // IMPORTANT FIX:
+  client.removeAllListeners();
+  client.rest.removeAllListeners();
+
+  client.setMaxListeners(20);
 
   await client.events.clear();
 
