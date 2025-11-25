@@ -3,7 +3,7 @@ const {
   EmbedBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ActionRowBuilder
+  ActionRowBuilder,
 } = require("discord.js");
 
 module.exports = {
@@ -11,61 +11,75 @@ module.exports = {
     .setName("spotify")
     .setDescription("Shows a user's current Spotify activity")
     .addUserOption(option =>
-      option.setName("user").setDescription("The user to check").setRequired(false)
+      option
+        .setName("user")
+        .setDescription("The user to check")
+        .setRequired(false)
     ),
 
   async execute(interaction) {
-    const user = interaction.options.getUser("user") || interaction.user;
-    const member = await interaction.guild.members.fetch(user.id).catch(() => null);
-    if (!member)
-      return interaction.reply({
-        content: "❌ Could not find that member.",
-        ephemeral: true
-      });
+    // Acknowledge the interaction so it can't expire
+    await interaction.deferReply({ ephemeral: true });
 
+    const user = interaction.options.getUser("user") || interaction.user;
+
+    // Fetch member (for presence)
+    const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+    if (!member) {
+      return interaction.editReply({
+        content: "❌ Could not find that member.",
+      });
+    }
+
+    // Case-insensitive Spotify presence detection
     const activity = member.presence?.activities.find(
-      act => act.name === "Spotify" && act.type === 2
+      act =>
+        act.type === 2 && // LISTENING
+        act.name &&
+        act.name.toLowerCase() === "spotify"
     );
 
-    if (!activity)
-      return interaction.reply({
+    if (!activity) {
+      return interaction.editReply({
         content: "🎵 That user is not listening to Spotify right now.",
-        ephemeral: true
       });
+    }
 
-    // Extract data
-    const title = activity.details;
-    const artist = activity.state;
+    // --------- Extract Spotify data ---------
+    const title = activity.details; // Track name
+    const artist = activity.state;  // Artist name(s)
     const album = activity.assets?.largeText || "Unknown Album";
-    const albumImage = activity.assets?.largeImage?.split(":")[1];
+
+    const albumImageId = activity.assets?.largeImage?.split(":")[1];
+    const albumImageUrl = albumImageId
+      ? `https://i.scdn.co/image/${albumImageId}`
+      : null;
 
     const start = activity.timestamps.start;
     const end = activity.timestamps.end;
     const totalDuration = end - start;
 
-    // Track ID fixing (works 100%)
+    // Track ID extraction (most reliable path)
     let trackId = null;
     const rawLarge = activity.assets?.largeImage;
 
     if (rawLarge?.startsWith("spotify:")) {
       trackId = rawLarge.replace("spotify:", "");
+    } else if (activity.syncId) {
+      trackId = activity.syncId;
     } else if (activity.id) {
       trackId = activity.id;
-    } else {
-      trackId = `${encodeURIComponent(title)}+${encodeURIComponent(artist)}`;
     }
 
-    const trackUrl = `https://open.spotify.com/track/${trackId}`;
+    const trackUrl = trackId
+      ? `https://open.spotify.com/track/${trackId}`
+      : `https://open.spotify.com/search/${encodeURIComponent(title + " " + artist)}`;
+
     const artistUrl = `https://open.spotify.com/search/${encodeURIComponent(artist)}`;
     const albumUrl = `https://open.spotify.com/search/${encodeURIComponent(album)}`;
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setLabel("Open Track").setStyle(ButtonStyle.Link).setURL(trackUrl),
-      new ButtonBuilder().setLabel("Artist").setStyle(ButtonStyle.Link).setURL(artistUrl),
-      new ButtonBuilder().setLabel("Album").setStyle(ButtonStyle.Link).setURL(albumUrl)
-    );
-
-    const format = ms => {
+    // ---------- Helpers ----------
+    const formatMs = ms => {
       const m = Math.floor(ms / 60000);
       const s = Math.floor((ms % 60000) / 1000);
       return `${m}:${s.toString().padStart(2, "0")}`;
@@ -74,24 +88,30 @@ module.exports = {
     const buildProgressBar = () => {
       const now = Date.now();
       const elapsed = now - start;
-      const progress = Math.min(elapsed / totalDuration, 1);
+      const clampedElapsed = Math.max(0, Math.min(elapsed, totalDuration));
+      const progress = clampedElapsed / totalDuration;
 
       const barLength = 20;
       const filled = Math.round(progress * barLength);
       const bar = "▬".repeat(filled) + "🔘" + "▬".repeat(barLength - filled);
 
-      return { bar, elapsed, progress };
+      return {
+        bar,
+        elapsed: clampedElapsed,
+      };
     };
 
     const buildEmbed = () => {
       const { bar, elapsed } = buildProgressBar();
-      const elapsedFormatted = format(elapsed);
-      const totalFormatted = format(totalDuration);
+      const elapsedFormatted = formatMs(elapsed);
+      const totalFormatted = formatMs(totalDuration);
 
-      return new EmbedBuilder()
-        .setColor("#1DB954")
-        .setAuthor({ name: `${user.username}'s Spotify`, iconURL: user.displayAvatarURL() })
-        .setThumbnail(`https://i.scdn.co/image/${albumImage}`)
+      const embed = new EmbedBuilder()
+        .setColor("#1DB954") // Spotify green
+        .setAuthor({
+          name: `${user.username}'s Spotify`,
+          iconURL: user.displayAvatarURL({ dynamic: true }),
+        })
         .setTitle(`🎶 ${title}`)
         .setDescription(
           `**Artist:** ${artist}\n` +
@@ -102,63 +122,90 @@ module.exports = {
           {
             name: "🕒 Started",
             value: `<t:${Math.floor(start / 1000)}:R>`,
-            inline: true
+            inline: true,
           },
           {
             name: "⏱ Ends",
             value: `<t:${Math.floor(end / 1000)}:R>`,
-            inline: true
+            inline: true,
           }
         )
         .setFooter({ text: `Requested by ${interaction.user.tag}` })
         .setTimestamp();
+
+      if (albumImageUrl) {
+        embed.setThumbnail(albumImageUrl);
+      }
+
+      return embed;
     };
 
-    // Send the initial embed
-    const message = await interaction.reply({
+    // ---------- Buttons ----------
+    const buttonsRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel("Open Track")
+        .setStyle(ButtonStyle.Link)
+        .setURL(trackUrl),
+      new ButtonBuilder()
+        .setLabel("Artist")
+        .setStyle(ButtonStyle.Link)
+        .setURL(artistUrl),
+      new ButtonBuilder()
+        .setLabel("Album")
+        .setStyle(ButtonStyle.Link)
+        .setURL(albumUrl)
+    );
+
+    // ---------- Send initial message ----------
+    const message = await interaction.editReply({
       embeds: [buildEmbed()],
-      components: [row],
-      fetchReply: true
+      components: [buttonsRow],
     });
 
-    // LIVE UPDATING — every 5 seconds (safe)
+    // ---------- Live updating progress bar (every 5s) ----------
     const interval = setInterval(async () => {
       try {
         const now = Date.now();
 
-        // STOP 1: Track ended
+        // Stop if track time has passed
         if (now >= end) {
           clearInterval(interval);
           return;
         }
 
-        // Refresh presence
+        // Refresh member presence each tick
         await member.fetch(true);
-        const spotifyNow = member.presence?.activities.find(
-          act => act.name === "Spotify" && act.type === 2
+
+        const currentSpotify = member.presence?.activities.find(
+          act =>
+            act.type === 2 &&
+            act.name &&
+            act.name.toLowerCase() === "spotify"
         );
 
-        // STOP 2: No longer listening
-        if (!spotifyNow) {
+        // Stop if they stopped listening
+        if (!currentSpotify) {
           clearInterval(interval);
           return;
         }
 
-        // STOP 3: Track changed
-        if (spotifyNow.details !== title || spotifyNow.state !== artist) {
+        // Stop if they changed track (title or artist changed)
+        if (
+          currentSpotify.details !== title ||
+          currentSpotify.state !== artist
+        ) {
           clearInterval(interval);
           return;
         }
 
-        // Update embed normally
+        // Update the progress bar + times
         await message.edit({
           embeds: [buildEmbed()],
-          components: [row]
+          components: [buttonsRow],
         });
-
-      } catch (err) {
+      } catch {
         clearInterval(interval);
       }
-    }, 5000);
-  }
+    }, 5000); // 5 seconds
+  },
 };
