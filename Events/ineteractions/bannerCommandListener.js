@@ -7,7 +7,7 @@ module.exports = {
       if (message.author.bot || !message.guild) return;
 
       const trimmed = message.content.toLowerCase().trim();
-      if (!trimmed.startsWith("taxx!banner") && !trimmed.startsWith("taxx! banner")) return;
+      if (!trimmed.startsWith("mod!banner") && !trimmed.startsWith("mod! banner")) return;
 
       if (!message.channel.permissionsFor(message.guild.members.me)?.has(PermissionsBitField.Flags.SendMessages)) return;
 
@@ -48,3 +48,4 @@ module.exports = {
     }
   },
 };
+
