@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const config = require('../../config.json'); // adjust path if needed
+const config = require('../../config.json'); 
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -34,7 +34,6 @@ module.exports = {
     console.log("isTester:", isTester);
     console.log("hasAdmin:", hasAdmin);
 
-    // Must be (Developer OR Tester) AND Admin
     if ((!isDeveloper && !isTester) || !hasAdmin) {
       console.warn("❌ Permission check failed.");
       return interaction.reply({
@@ -105,7 +104,7 @@ module.exports = {
         console.error(`❌ Failed to send insult #${i}:`, err);
       }
 
-      await new Promise(resolve => setTimeout(resolve, 750)); // avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 750)); 
     }
 
     console.log("🎉 Finished sending insults.");
