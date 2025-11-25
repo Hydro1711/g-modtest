@@ -5,7 +5,7 @@ const AfkSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
   reason: { type: String, default: "AFK" },
   timestamp: { type: Date, default: Date.now }
-});
+}, { autoIndex: false });
 
 AfkSchema.index({ userId: 1, guildId: 1 }, { unique: true });
 
