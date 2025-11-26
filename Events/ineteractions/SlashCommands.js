@@ -4,6 +4,18 @@ module.exports = {
     try {
       if (!interaction.inGuild()) return;
 
+      const safeReply = async (content, ephemeral = true) => {
+        try {
+          if (!interaction.replied && !interaction.deferred) {
+            return await interaction.reply({ content, ephemeral });
+          } else {
+            return await interaction.followUp({ content, ephemeral });
+          }
+        } catch {
+          // Ignore reply errors silently
+        }
+      };
+
       const commandData = {
         moderation: [
           ['/altscanner', '-# Scan a user’s account to check if it might be an alt.'],
@@ -62,8 +74,8 @@ module.exports = {
         ]
       };
 
-      // ---------------------------------------  
-      // HELP MENU HANDLER  
+      // ---------------------------------------
+      // HELP MENU HANDLER
       // ---------------------------------------
       if (interaction.isStringSelectMenu() && interaction.customId === 'help-category') {
         const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
@@ -114,12 +126,13 @@ module.exports = {
         await interaction.update({
           embeds: [embed],
           components: [dropdown, row, warningBtn],
-        });
+        }).catch(() => {});
+
         return;
       }
 
-      // ---------------------------------------  
-      // HELP BUTTONS (PAGES)  
+      // ---------------------------------------
+      // HELP BUTTON PAGES
       // ---------------------------------------
       if (interaction.isButton() && interaction.customId.startsWith('help-')) {
         const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
@@ -171,55 +184,45 @@ module.exports = {
         await interaction.update({
           embeds: [embed],
           components: [dropdown, row, warningBtn],
-        });
+        }).catch(() => {});
+
         return;
       }
 
       if (interaction.isButton() && interaction.customId === 'help-warning') {
-        return interaction.reply({
-          content: '⚠️ Gambling is not real money. This is for fun only.',
-          ephemeral: true,
-        });
+        return safeReply('⚠️ Gambling is for entertainment only.');
       }
 
-      // ---------------------------------------  
-      // SLASH COMMANDS (FIXED)  
+      // ---------------------------------------
+      // SLASH COMMANDS (FULLY FIXED)
       // ---------------------------------------
       if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
 
         if (!command) {
-          return interaction.reply({
-            content: "This command is outdated.",
-            ephemeral: true,
-          });
+          return safeReply("This command is outdated.");
         }
 
         console.log(`[DEBUG] Slash command received: ${interaction.commandName} by ${interaction.user.tag}`);
 
-        // ⭐ FIX: Prevent double replies forever
         try {
           await command.execute(interaction, client);
         } catch (err) {
           console.error("Command Error:", err);
-          if (!interaction.replied && !interaction.deferred) {
-            return interaction.reply({ content: "❌ An internal error occurred.", ephemeral: true });
-          }
+          return safeReply("❌ An internal error occurred.");
         }
 
         return;
       }
 
-      // ---------------------------------------  
-      // CONTEXT MENU  
+      // ---------------------------------------
+      // CONTEXT MENU
       // ---------------------------------------
       if (interaction.isUserContextMenuCommand() || interaction.isMessageContextMenuCommand()) {
         const command = client.commands.get(interaction.commandName);
+
         if (!command) {
-          return interaction.reply({
-            content: "This command is outdated.",
-            ephemeral: true,
-          });
+          return safeReply("This command is outdated.");
         }
 
         console.log(`[DEBUG] Context menu received: ${interaction.commandName} by ${interaction.user.tag}`);
@@ -228,37 +231,30 @@ module.exports = {
           await command.execute(interaction, client);
         } catch (err) {
           console.error("ContextMenu Error:", err);
-          if (!interaction.replied && !interaction.deferred) {
-            return interaction.reply({
-              content: "❌ An internal error occurred.",
-              ephemeral: true,
-            });
-          }
+          return safeReply("❌ An internal error occurred.");
         }
 
         return;
       }
 
-      // ---------------------------------------  
-      // MUTE MODAL  
+      // ---------------------------------------
+      // MUTE MODAL
       // ---------------------------------------
       if (interaction.isModalSubmit() && interaction.customId.startsWith("mute-modal-")) {
         const command = client.commands.get("Mute");
-
         if (command?.modal) {
           return command.modal(interaction, client);
         }
-
         return;
       }
 
-      // ---------------------------------------  
-      // CONTACT FORM  
+      // ---------------------------------------
+      // CONTACT FORM
       // ---------------------------------------
       if (interaction.isModalSubmit() && interaction.customId === "contactModal") {
         console.log(`[DEBUG] Contact modal submitted by ${interaction.user.tag}`);
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ ephemeral: true }).catch(() => {});
 
         const discordName = interaction.fields.getTextInputValue("discordNameInput");
         const serverName = interaction.fields.getTextInputValue("serverNameInput");
@@ -268,7 +264,6 @@ module.exports = {
 
         try {
           const owner = await client.users.fetch(ownerId);
-
           const { EmbedBuilder } = require("discord.js");
           const contactEmbed = new EmbedBuilder()
             .setColor("#0099ff")
@@ -283,17 +278,15 @@ module.exports = {
 
           await owner.send({ embeds: [contactEmbed] });
 
-          return interaction.editReply({ content: "✅ Your message has been sent!" });
-
+          return interaction.editReply({ content: "✅ Your message has been sent!" }).catch(() => {});
         } catch (error) {
           console.error("Failed to send contact:", error);
-          return interaction.editReply({ content: "❌ Could not send your message." });
+          return interaction.editReply({ content: "❌ Could not send your message." }).catch(() => {});
         }
       }
 
     } catch (error) {
       console.error(`[ERROR] interactionCreate fatal handler error:`, error);
-      // Do NOT attempt a reply here — avoids duplicate-interaction crash
     }
   }
 };
