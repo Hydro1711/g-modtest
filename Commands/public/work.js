@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, Colors } = require("discord.js");
 const User = require("../../models/user");
 const getOrCreateUser = require('../../Functions/getOrCreateUser');
 
-const WORK_COOLDOWN = 7 * 60 * 1000; // 7 minutes
+const WORK_COOLDOWN = 7 * 60 * 1000; 
 
 const JOBS = [
   { name: "Developer", min: 200, max: 500 },
