@@ -45,6 +45,21 @@ module.exports = {
 
     console.log("AFK DEBUG: missingNicknamePermission =", missingNicknamePermission);
 
+    if (member.id === interaction.guild.ownerId) {
+      console.log("AFK DEBUG: User is guild owner — nickname cannot be changed.");
+
+      await AfkModel.findOneAndUpdate(
+        { userId, guildId },
+        { reason, timestamp: new Date() },
+        { upsert: true }
+      );
+
+      return interaction.reply({
+        content: `⚠️ You are now AFK, but I cannot modify the server owner's nickname.\nAFK reason saved: **${reason}**`,
+        ephemeral: true,
+      });
+    }
+
     if (missingNicknamePermission || !botAboveUser) {
       console.log("AFK DEBUG: Permission or hierarchy check failed");
 
@@ -66,8 +81,7 @@ module.exports = {
         )
         .setColor(0xff0000);
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
-      return;
+      return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     console.log("AFK DEBUG: Passed permission check. Updating DB…");
