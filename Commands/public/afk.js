@@ -10,6 +10,8 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    console.log("AFK DEBUG: Command invoked by", interaction.user.tag);
+
     const reason = interaction.options.getString("reason") || "AFK";
 
     if (reason.length > 2000) {
@@ -22,20 +24,30 @@ module.exports = {
     const userId = interaction.user.id;
     const guildId = interaction.guild.id;
 
-    const member = interaction.member;                  // user
-    const botMember = interaction.guild.members.me;     // bot
+    const member = interaction.member;
+    const botMember = interaction.guild.members.me;
 
-
+    console.log("AFK DEBUG: Target user nickname =", member.nickname);
+    console.log("AFK DEBUG: Bot nickname =", botMember.nickname);
+    console.log("AFK DEBUG: Bot permissions =", botMember.permissions.toArray());
+    console.log("AFK DEBUG: Bot highest role position =", botMember.roles.highest.position);
+    console.log("AFK DEBUG: User highest role position =", member.roles.highest.position);
 
     const hasAdmin = botMember.permissions.has(PermissionsBitField.Flags.Administrator);
     const hasManageNick = botMember.permissions.has(PermissionsBitField.Flags.ManageNicknames);
     const botAboveUser = botMember.roles.highest.position > member.roles.highest.position;
 
-    // In new Discord update Admin does NOT bypass granular nickname perms
+    console.log("AFK DEBUG: hasAdmin =", hasAdmin);
+    console.log("AFK DEBUG: hasManageNick =", hasManageNick);
+    console.log("AFK DEBUG: botAboveUser =", botAboveUser);
+
     const missingNicknamePermission = !hasManageNick && !hasAdmin;
 
-    // If bot cannot change nickname safely
+    console.log("AFK DEBUG: missingNicknamePermission =", missingNicknamePermission);
+
     if (missingNicknamePermission || !botAboveUser) {
+      console.log("AFK DEBUG: Permission or hierarchy check failed");
+
       const embed = new EmbedBuilder()
         .setTitle("❌ Missing Permissions")
         .setDescription(
@@ -58,25 +70,33 @@ module.exports = {
       return;
     }
 
+    console.log("AFK DEBUG: Passed permission check. Updating DB…");
 
     await AfkModel.findOneAndUpdate(
       { userId, guildId },
       { reason, timestamp: new Date() },
       { upsert: true }
     );
+
     try {
       const originalName = member.nickname || member.user.username;
+      console.log("AFK DEBUG: originalName =", originalName);
 
       if (!originalName.startsWith("[AFK]")) {
         const newNickname = `[AFK] ${originalName}`;
+        console.log("AFK DEBUG: Attempting nickname change →", newNickname);
 
-        await member.setNickname(newNickname).catch(() => {
-          // fallback if Discord still blocks nickname change
+        await member.setNickname(newNickname).catch(err => {
+          console.log("AFK DEBUG: Nickname change rejected:", err.message);
         });
+      } else {
+        console.log("AFK DEBUG: Name already has AFK prefix, skipping nickname set");
       }
     } catch (err) {
-      console.warn(`⚠️ Nickname change failed for ${member.user.tag}: ${err.message}`);
+      console.log("AFK DEBUG: Nickname change threw error:", err);
     }
+
+    console.log("AFK DEBUG: Sending AFK confirmation message");
 
     return interaction.reply({
       content: `✅ You are now AFK${reason ? `: **${reason}**` : ""}.`,
