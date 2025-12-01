@@ -1,9 +1,13 @@
 module.exports = {
   name: "interactionCreate",
+
   async execute(interaction, client) {
     try {
       if (!interaction.inGuild()) return;
 
+      // ------------------------------
+      // UNIVERSAL SAFE REPLY
+      // ------------------------------
       const safeReply = async (content, ephemeral = true) => {
         try {
           if (!interaction.replied && !interaction.deferred) {
@@ -12,10 +16,13 @@ module.exports = {
             return await interaction.followUp({ content, ephemeral });
           }
         } catch {
-          // Ignore reply errors silently
+          return;
         }
       };
 
+      // ------------------------------
+      // COMMAND CATEGORY DATA
+      // ------------------------------
       const commandData = {
         moderation: [
           ['/altscanner', '-# Scan a user’s account to check if it might be an alt.'],
@@ -74,15 +81,14 @@ module.exports = {
         ]
       };
 
-      // ---------------------------------------
-      // HELP MENU HANDLER
-      // ---------------------------------------
+      // ------------------------------
+      // HELP MENU SELECT
+      // ------------------------------
       if (interaction.isStringSelectMenu() && interaction.customId === 'help-category') {
         const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 
         const category = interaction.values[0];
         const commands = commandData[category];
-        const page = 0;
         const perPage = 6;
         const totalPages = Math.ceil(commands.length / perPage);
 
@@ -91,30 +97,32 @@ module.exports = {
           .setDescription(commands.slice(0, perPage).map(([c, d]) => `**${c}**\n${d}`).join('\n\n'))
           .setColor('#2C2F33');
 
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`help-${category}-prev-${page}`)
-            .setLabel('⬅️')
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(true),
-          new ButtonBuilder()
-            .setCustomId(`help-${category}-next-${page + 1}`)
-            .setLabel('➡️')
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(totalPages <= 1)
-        );
+        const row = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId(`help-${category}-prev-0`)
+              .setLabel('⬅️')
+              .setStyle(ButtonStyle.Secondary)
+              .setDisabled(true),
+            new ButtonBuilder()
+              .setCustomId(`help-${category}-next-1`)
+              .setLabel('➡️')
+              .setStyle(ButtonStyle.Secondary)
+              .setDisabled(totalPages <= 1)
+          );
 
-        const dropdown = new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId('help-category')
-            .setPlaceholder('📂 Choose a category')
-            .addOptions([
-              { label: 'Moderation Commands', value: 'moderation' },
-              { label: 'Public Commands', value: 'public' },
-              { label: 'Fun Commands', value: 'fun' },
-              { label: 'Casino Commands', value: 'economy' },
-            ])
-        );
+        const dropdown = new ActionRowBuilder()
+          .addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId('help-category')
+              .setPlaceholder('📂 Choose a category')
+              .addOptions([
+                { label: 'Moderation Commands', value: 'moderation' },
+                { label: 'Public Commands', value: 'public' },
+                { label: 'Fun Commands', value: 'fun' },
+                { label: 'Casino Commands', value: 'economy' },
+              ])
+          );
 
         const warningBtn = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
@@ -125,15 +133,15 @@ module.exports = {
 
         await interaction.update({
           embeds: [embed],
-          components: [dropdown, row, warningBtn],
+          components: [dropdown, row, warningBtn]
         }).catch(() => {});
 
         return;
       }
 
-      // ---------------------------------------
-      // HELP BUTTON PAGES
-      // ---------------------------------------
+      // ------------------------------
+      // HELP PAGE BUTTONS
+      // ------------------------------
       if (interaction.isButton() && interaction.customId.startsWith('help-')) {
         const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 
@@ -149,18 +157,19 @@ module.exports = {
           .setDescription(commands.slice(newPage * perPage, (newPage + 1) * perPage).map(([c, d]) => `**${c}**\n${d}`).join('\n\n'))
           .setColor('#2C2F33');
 
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`help-${category}-prev-${newPage}`)
-            .setLabel('⬅️')
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(newPage === 0),
-          new ButtonBuilder()
-            .setCustomId(`help-${category}-next-${newPage + 1}`)
-            .setLabel('➡️')
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(newPage + 1 >= totalPages)
-        );
+        const row = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId(`help-${category}-prev-${newPage}`)
+              .setLabel('⬅️')
+              .setStyle(ButtonStyle.Secondary)
+              .setDisabled(newPage === 0),
+            new ButtonBuilder()
+              .setCustomId(`help-${category}-next-${newPage + 1}`)
+              .setLabel('➡️')
+              .setStyle(ButtonStyle.Secondary)
+              .setDisabled(newPage + 1 >= totalPages)
+          );
 
         const dropdown = new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
@@ -183,7 +192,7 @@ module.exports = {
 
         await interaction.update({
           embeds: [embed],
-          components: [dropdown, row, warningBtn],
+          components: [dropdown, row, warningBtn]
         }).catch(() => {});
 
         return;
@@ -193,15 +202,12 @@ module.exports = {
         return safeReply('⚠️ Gambling is for entertainment only.');
       }
 
-      // ---------------------------------------
-      // SLASH COMMANDS (FULLY FIXED)
-      // ---------------------------------------
+      // ------------------------------
+      // SLASH COMMANDS (FIXED)
+      // ------------------------------
       if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
-
-        if (!command) {
-          return safeReply("This command is outdated.");
-        }
+        if (!command) return safeReply("This command is outdated.");
 
         console.log(`[DEBUG] Slash command received: ${interaction.commandName} by ${interaction.user.tag}`);
 
@@ -209,48 +215,51 @@ module.exports = {
           await command.execute(interaction, client);
         } catch (err) {
           console.error("Command Error:", err);
-          return safeReply("❌ An internal error occurred.");
+
+          if (!interaction.replied && !interaction.deferred) {
+            return interaction.reply({ content: "❌ An internal error occurred.", ephemeral: true }).catch(() => {});
+          } else {
+            return interaction.followUp({ content: "❌ An internal error occurred.", ephemeral: true }).catch(() => {});
+          }
         }
 
         return;
       }
 
-      // ---------------------------------------
-      // CONTEXT MENU
-      // ---------------------------------------
+      // ------------------------------
+      // CONTEXT MENUS
+      // ------------------------------
       if (interaction.isUserContextMenuCommand() || interaction.isMessageContextMenuCommand()) {
         const command = client.commands.get(interaction.commandName);
-
-        if (!command) {
-          return safeReply("This command is outdated.");
-        }
-
-        console.log(`[DEBUG] Context menu received: ${interaction.commandName} by ${interaction.user.tag}`);
+        if (!command) return safeReply("This command is outdated.");
 
         try {
           await command.execute(interaction, client);
         } catch (err) {
-          console.error("ContextMenu Error:", err);
-          return safeReply("❌ An internal error occurred.");
+          console.error("Context Menu Error:", err);
+
+          if (!interaction.replied && !interaction.deferred) {
+            return interaction.reply({ content: "❌ An internal error occurred.", ephemeral: true }).catch(() => {});
+          } else {
+            return interaction.followUp({ content: "❌ An internal error occurred.", ephemeral: true }).catch(() => {});
+          }
         }
 
         return;
       }
 
-      // ---------------------------------------
+      // ------------------------------
       // MUTE MODAL
-      // ---------------------------------------
+      // ------------------------------
       if (interaction.isModalSubmit() && interaction.customId.startsWith("mute-modal-")) {
         const command = client.commands.get("Mute");
-        if (command?.modal) {
-          return command.modal(interaction, client);
-        }
+        if (command?.modal) return command.modal(interaction, client);
         return;
       }
 
-      // ---------------------------------------
+      // ------------------------------
       // CONTACT FORM
-      // ---------------------------------------
+      // ------------------------------
       if (interaction.isModalSubmit() && interaction.customId === "contactModal") {
         console.log(`[DEBUG] Contact modal submitted by ${interaction.user.tag}`);
 
@@ -265,6 +274,7 @@ module.exports = {
         try {
           const owner = await client.users.fetch(ownerId);
           const { EmbedBuilder } = require("discord.js");
+
           const contactEmbed = new EmbedBuilder()
             .setColor("#0099ff")
             .setTitle("📩 New Contact Message")
@@ -286,7 +296,7 @@ module.exports = {
       }
 
     } catch (error) {
-      console.error(`[ERROR] interactionCreate fatal handler error:`, error);
+      console.error("[FATAL] interactionCreate handler crashed:", error);
     }
   }
 };
