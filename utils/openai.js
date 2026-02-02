@@ -3,7 +3,7 @@ const OpenAI = require("openai");
 
 // ❌ NOT RECOMMENDED, but per your request
 const openai = new OpenAI({
-  apiKey: "sk-abcdef1234567890abcdef1234567890abcdef12"
+  apiKey: "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"
 });
 
 // BMW keyword gate (hard filter)
