@@ -20,7 +20,6 @@ import { loadConfig } from "./Functions/configLoader.js";
 
 const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
 
-// Destructure intents
 const {
   Guilds,
   GuildMembers,
@@ -31,7 +30,6 @@ const {
   GuildModeration,
 } = GatewayIntentBits;
 
-// Partials
 const { User, Message, GuildMember, ThreadMember, Channel, MessageReaction } =
   Partials;
 
@@ -53,7 +51,6 @@ const client = new Client({
   partials: [User, Message, GuildMember, ThreadMember, Channel, MessageReaction],
 });
 
-// Collections
 client.config = config;
 client.commands = new Collection();
 client.subCommands = new Collection();
@@ -73,10 +70,10 @@ mongoose
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => console.error("❌ MongoDB error:", err));
 
-// Load config first
+// Config first
 loadConfig(client);
 
-// Load events ONCE (guard)
+// Events once (guard)
 if (!client._eventsLoaded) {
   client._eventsLoaded = true;
   await loadEvents(client);
@@ -108,7 +105,7 @@ app.get("/", (req, res) => res.send("✅ Discord bot is running!"));
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🌐 Web server on port ${PORT}`));
 
-// Optional: remove this if you want (not required on Render)
+// Optional keepalive
 setInterval(() => {
   fetch("https://g-modtest.onrender.com/").catch(() =>
     console.log("⚠️ Self-ping failed")
