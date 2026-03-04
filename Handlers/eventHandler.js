@@ -1,20 +1,40 @@
-async function loadEvents(client) {
-  const { loadFiles } = require("../Functions/fileLoader");
-  const ascii = require("ascii-table");
+import ascii from "ascii-table";
+import { loadFiles } from "../Functions/fileLoader.js";
+
+export async function loadEvents(client) {
   const table = new ascii().setHeading("Events", "Status");
 
-  // IMPORTANT FIX:
-  client.removeAllListeners();
-  client.rest.removeAllListeners();
+  // clear your map so reloading doesn't duplicate
+  client.events.clear();
 
-  client.setMaxListeners(20);
+  const files = await loadFiles("Events");
 
-  await client.events.clear();
+  // Track names to avoid printing/attaching duplicates
+  const seen = new Set();
 
-  const Files = await loadFiles("Events");
+  for (const file of files) {
+    // Dynamic import in ESM
+    const imported = await import(file);
+    const event = imported.default ?? imported;
 
-  Files.forEach((file) => {
-    const event = require(file);
+    if (!event?.name || typeof event.execute !== "function") {
+      table.addRow(file.split("/").pop(), "🟥");
+      continue;
+    }
+
+    // If two files export same event.name, skip the duplicates
+    if (seen.has(event.name)) {
+      continue;
+    }
+    seen.add(event.name);
+
+    // IMPORTANT: remove listeners ONLY for this event
+    // (don't nuke all listeners globally)
+    if (event.rest) {
+      client.rest.removeAllListeners(event.name);
+    } else {
+      client.removeAllListeners(event.name);
+    }
 
     const execute = (...args) => event.execute(...args, client);
     client.events.set(event.name, execute);
@@ -28,9 +48,7 @@ async function loadEvents(client) {
     }
 
     table.addRow(event.name, "🟩");
-  });
+  }
 
-  return console.log(table.toString(), "\nLoaded Events.");
+  console.log(table.toString(), "\nLoaded Events.");
 }
-
-module.exports = { loadEvents };
