@@ -1,9 +1,7 @@
-import configDatabase from "../Schemas/MemberLog.js";
+const configDatabase = require("../Schemas/MemberLog");
 
-export async function loadConfig(client) {
-  const docs = await configDatabase.find();
-
-  docs.forEach((doc) => {
+async function loadConfig(client) {
+  (await configDatabase.find()).forEach((doc) => {
     client.guildConfig.set(doc.Guild, {
       logChannel: doc.logChannel,
       memberRole: doc.memberRole,
@@ -11,5 +9,7 @@ export async function loadConfig(client) {
     });
   });
 
-  console.log("Loaded Guild Configs to the Collection.");
+  return console.log("Loaded Guild Configs to the Collection.");
 }
+
+module.exports = { loadConfig };
