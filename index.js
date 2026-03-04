@@ -14,6 +14,10 @@ import express from "express";
 import fs from "fs";
 import fetch from "node-fetch";
 
+import { loadEvents } from "./Handlers/eventHandler.js";
+import { loadCommands } from "./Handlers/commandHandler.js";
+import { loadConfig } from "./Functions/configLoader.js";
+
 const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
 
 // Destructure intents
@@ -31,7 +35,6 @@ const {
 const { User, Message, GuildMember, ThreadMember, Channel, MessageReaction } =
   Partials;
 
-// ⭐ FIXED CLIENT (presence caching added!)
 const client = new Client({
   intents: [
     Guilds,
@@ -41,24 +44,13 @@ const client = new Client({
     GuildVoiceStates,
     GuildMessageReactions,
     GuildModeration,
-    GatewayIntentBits.GuildPresences, // REQUIRED for Spotify
+    GatewayIntentBits.GuildPresences,
   ],
-
-  // ⭐ FIX: Discord.js DOES NOT CACHE PRESENCES BY DEFAULT
-  // Without this, Spotify activity is missing in other servers.
   makeCache: Options.cacheWithLimits({
     GuildMemberManager: 500,
     PresenceManager: 500,
   }),
-
-  partials: [
-    User,
-    Message,
-    GuildMember,
-    ThreadMember,
-    Channel,
-    MessageReaction,
-  ],
+  partials: [User, Message, GuildMember, ThreadMember, Channel, MessageReaction],
 });
 
 // Collections
@@ -77,19 +69,18 @@ if (!mongoURL) {
 }
 
 mongoose
-  .connect(mongoURL)
+  .connect(mongoURL, { serverSelectionTimeoutMS: 10000 })
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => console.error("❌ MongoDB error:", err));
 
-// Load handlers
-import { loadEvents } from "./Handlers/eventHandler.js";
-import { loadCommands } from "./Handlers/commandHandler.js";
-import { loadConfig } from "./Functions/configLoader.js";
-
-loadEvents(client);
+// Load config first
 loadConfig(client);
 
-client.setMaxListeners(20);
+// Load events ONCE (guard)
+if (!client._eventsLoaded) {
+  client._eventsLoaded = true;
+  await loadEvents(client);
+}
 
 // READY
 client.once("ready", async () => {
@@ -110,16 +101,17 @@ if (!token) {
 
 client.login(token).catch((err) => console.error("❌ Login failed:", err));
 
-// Web server (Render keepalive)
+// Web server (Render)
 const app = express();
 app.get("/", (req, res) => res.send("✅ Discord bot is running!"));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🌐 Web server on port ${PORT}`));
 
+// Optional: remove this if you want (not required on Render)
 setInterval(() => {
   fetch("https://g-modtest.onrender.com/").catch(() =>
-    console.log("⚠️ Self-ping failed (maybe asleep)")
+    console.log("⚠️ Self-ping failed")
   );
 }, 5 * 60 * 1000);
 
