@@ -1,15 +1,15 @@
-const configDatabase = require("../Schemas/MemberLog");
+import configDatabase from "../Schemas/MemberLog.js";
 
-async function loadConfig(client) {
-    (await configDatabase.find()).forEach((doc) => {
-        client.guildConfig.set(doc.Guild, {
-            logChannel: doc.logChannel,
-            memberRole: doc.memberRole,
-            botRole: doc.botRole
-        });
+export async function loadConfig(client) {
+  const docs = await configDatabase.find();
+
+  docs.forEach((doc) => {
+    client.guildConfig.set(doc.Guild, {
+      logChannel: doc.logChannel,
+      memberRole: doc.memberRole,
+      botRole: doc.botRole,
     });
+  });
 
-    return console.log("Loaded Guild Configs to the Collection.")
+  console.log("Loaded Guild Configs to the Collection.");
 }
-
-module.exports = { loadConfig } 
