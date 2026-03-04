@@ -1,11 +1,14 @@
-const { glob } = require("glob");
+import { glob } from "glob";
+import { pathToFileURL } from "url";
 
-async function loadFiles(dirName) {
-  const Files = await glob(
+/**
+ * Returns an array of file:// URLs so dynamic import() works reliably on Render/Windows/Linux.
+ */
+export async function loadFiles(dirName) {
+  const files = await glob(
     `${process.cwd().replace(/\\/g, "/")}/${dirName}/**/*.js`
   );
-  Files.forEach((file) => delete require.cache[require.resolve(file)]);
-  return Files;
-}
 
-module.exports = { loadFiles };
+  // Convert to file URLs for import()
+  return files.map((f) => pathToFileURL(f).href);
+}
