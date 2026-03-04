@@ -16,10 +16,14 @@ import fetch from "node-fetch";
 
 import { loadEvents } from "./Handlers/eventHandler.js";
 import { loadCommands } from "./Handlers/commandHandler.js";
-import { loadConfig } from "./Functions/configLoader.js";
+
+// Import CommonJS configLoader safely
+import configLoader from "./Functions/configLoader.js";
+const { loadConfig } = configLoader;
 
 const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
 
+// Intents
 const {
   Guilds,
   GuildMembers,
@@ -30,9 +34,11 @@ const {
   GuildModeration,
 } = GatewayIntentBits;
 
+// Partials
 const { User, Message, GuildMember, ThreadMember, Channel, MessageReaction } =
   Partials;
 
+// Discord Client
 const client = new Client({
   intents: [
     Guilds,
@@ -48,9 +54,17 @@ const client = new Client({
     GuildMemberManager: 500,
     PresenceManager: 500,
   }),
-  partials: [User, Message, GuildMember, ThreadMember, Channel, MessageReaction],
+  partials: [
+    User,
+    Message,
+    GuildMember,
+    ThreadMember,
+    Channel,
+    MessageReaction,
+  ],
 });
 
+// Collections
 client.config = config;
 client.commands = new Collection();
 client.subCommands = new Collection();
@@ -60,6 +74,7 @@ client.prefixCommands = new Map();
 
 // MongoDB
 const mongoURL = process.env.MONGODB_URL;
+
 if (!mongoURL) {
   console.error("❌ No MongoDB URL found!");
   process.exit(1);
@@ -70,27 +85,29 @@ mongoose
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => console.error("❌ MongoDB error:", err));
 
-// Config first
+// Load config
 loadConfig(client);
 
-// Events once (guard)
+// Load events ONLY once
 if (!client._eventsLoaded) {
   client._eventsLoaded = true;
   await loadEvents(client);
 }
 
-// READY
+// Ready event
 client.once("ready", async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 
   await loadCommands(client);
 
   client.user.setActivity(`with ${client.guilds.cache.size} guild(s)`);
+
   console.log("✅ Bot is fully ready with full presence support!");
 });
 
 // Login
 const token = process.env.DISCORD_TOKEN;
+
 if (!token) {
   console.error("❌ No Discord token found!");
   process.exit(1);
@@ -98,14 +115,20 @@ if (!token) {
 
 client.login(token).catch((err) => console.error("❌ Login failed:", err));
 
-// Web server (Render)
+// Express server (Render)
 const app = express();
-app.get("/", (req, res) => res.send("✅ Discord bot is running!"));
+
+app.get("/", (req, res) => {
+  res.send("✅ Discord bot is running!");
+});
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🌐 Web server on port ${PORT}`));
 
-// Optional keepalive
+app.listen(PORT, () => {
+  console.log(`🌐 Web server on port ${PORT}`);
+});
+
+// Optional self ping (not required on Render)
 setInterval(() => {
   fetch("https://g-modtest.onrender.com/").catch(() =>
     console.log("⚠️ Self-ping failed")
