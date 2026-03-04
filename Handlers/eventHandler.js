@@ -4,37 +4,33 @@ import { loadFiles } from "../Functions/fileLoader.js";
 export async function loadEvents(client) {
   const table = new ascii().setHeading("Events", "Status");
 
-  // clear your map so reloading doesn't duplicate
+  // Clear the map (doesn't touch discord.js internal listeners)
   client.events.clear();
 
   const files = await loadFiles("Events");
 
-  // Track names to avoid printing/attaching duplicates
-  const seen = new Set();
+  // If your glob returns duplicate paths or you have duplicate event names, this prevents stacking.
+  const seenNames = new Set();
 
-  for (const file of files) {
-    // Dynamic import in ESM
-    const imported = await import(file);
+  for (const fileUrl of files) {
+    const imported = await import(fileUrl);
     const event = imported.default ?? imported;
 
     if (!event?.name || typeof event.execute !== "function") {
-      table.addRow(file.split("/").pop(), "🟥");
+      table.addRow(fileUrl.split("/").pop(), "🟥");
       continue;
     }
 
-    // If two files export same event.name, skip the duplicates
-    if (seen.has(event.name)) {
+    // If you accidentally have multiple files exporting the same event.name (e.g., messageCreate),
+    // we only register the first one to avoid 20+ listeners.
+    if (seenNames.has(event.name)) {
       continue;
     }
-    seen.add(event.name);
+    seenNames.add(event.name);
 
-    // IMPORTANT: remove listeners ONLY for this event
-    // (don't nuke all listeners globally)
-    if (event.rest) {
-      client.rest.removeAllListeners(event.name);
-    } else {
-      client.removeAllListeners(event.name);
-    }
+    // Remove existing listeners for just this event name (safe)
+    if (event.rest) client.rest.removeAllListeners(event.name);
+    else client.removeAllListeners(event.name);
 
     const execute = (...args) => event.execute(...args, client);
     client.events.set(event.name, execute);
