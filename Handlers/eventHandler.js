@@ -1,36 +1,20 @@
-import ascii from "ascii-table";
-import { loadFiles } from "../Functions/fileLoader.js";
-
-export async function loadEvents(client) {
+async function loadEvents(client) {
+  const { loadFiles } = require("../Functions/fileLoader");
+  const ascii = require("ascii-table");
   const table = new ascii().setHeading("Events", "Status");
 
-  // Clear the map (doesn't touch discord.js internal listeners)
-  client.events.clear();
+  // IMPORTANT FIX:
+  client.removeAllListeners();
+  client.rest.removeAllListeners();
 
-  const files = await loadFiles("Events");
+  client.setMaxListeners(20);
 
-  // If your glob returns duplicate paths or you have duplicate event names, this prevents stacking.
-  const seenNames = new Set();
+  await client.events.clear();
 
-  for (const fileUrl of files) {
-    const imported = await import(fileUrl);
-    const event = imported.default ?? imported;
+  const Files = await loadFiles("Events");
 
-    if (!event?.name || typeof event.execute !== "function") {
-      table.addRow(fileUrl.split("/").pop(), "🟥");
-      continue;
-    }
-
-    // If you accidentally have multiple files exporting the same event.name (e.g., messageCreate),
-    // we only register the first one to avoid 20+ listeners.
-    if (seenNames.has(event.name)) {
-      continue;
-    }
-    seenNames.add(event.name);
-
-    // Remove existing listeners for just this event name (safe)
-    if (event.rest) client.rest.removeAllListeners(event.name);
-    else client.removeAllListeners(event.name);
+  Files.forEach((file) => {
+    const event = require(file);
 
     const execute = (...args) => event.execute(...args, client);
     client.events.set(event.name, execute);
@@ -44,7 +28,9 @@ export async function loadEvents(client) {
     }
 
     table.addRow(event.name, "🟩");
-  }
+  });
 
-  console.log(table.toString(), "\nLoaded Events.");
+  return console.log(table.toString(), "\nLoaded Events.");
 }
+
+module.exports = { loadEvents };
